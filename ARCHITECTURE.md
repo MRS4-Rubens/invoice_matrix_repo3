@@ -33,6 +33,36 @@ This app uses Next.js Server Actions as the default way pages talk to the backen
 - Types and React components: PascalCase
 - Each domain's Server Actions file is named after the action it performs where possible (e.g., `lib/actions/customers/create-customer.ts`) rather than one giant `actions.ts` file per domain — this keeps files small and easy for an AI agent to open and edit without pulling in unrelated code.
 
+## Server Action Convention (established Phase 4)
+
+All Server Actions in this app share a consistent envelope and error-handling pattern using wrappers defined in `lib/actions/_shared/create-action.ts`.
+
+- **ActionResult<T> Envelope**: Every action returns a unified `{ success: true, data: T } | { success: false, error: ... }` shape. This ensures UI code can always safely check `.success` first without needing custom `try/catch` blocks for expected failures, and prevents raw server errors from ever leaking to the client.
+- **ActionError vs. System Errors**: If an action throws an `ActionError` (from `lib/actions/_shared/errors.ts`), it is treated as a safe, expected business error (e.g. "This invoice is already finalized"). Its `.message` will be shown to the user VERBATIM. Any other error (a database crash, a null pointer, a plain `Error`) is treated as an unexpected system fault. It will be replaced with a generic fallback message for the user, but the real error and stack trace will be fully logged server-side for debugging.
+- **Strict Wrapper Requirement**: All new Server Actions from Phase 5 onward MUST use `createAction` or `createAuthenticatedAction` from `lib/actions/_shared/create-action.ts`. Do not write a new `try/catch`-based action from scratch — if the existing wrapper doesn't fit a new situation, extend the wrapper itself rather than bypassing it.
+- **Business Logic Scope**: This wrapper handles input validation (via Zod), authentication (via `getCurrentAppUser`), and error safety generically. It deliberately does NOT enforce business-specific rules like "the current user's business_id must be set" — each domain action is responsible for its own such checks (e.g., via `ActionError`) since not every action necessarily requires one.
+- **Revalidation**: `revalidatePath()`/`revalidateTag()` calls after a mutation are the responsibility of each individual action, not this shared wrapper, since different actions affect different pages.
+
+**Example Usage**: (See `lib/actions/_shared/ping.ts` for the complete canonical live example)
+
+```typescript
+import { z } from 'zod';
+import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
+import { ActionError } from '@/lib/actions/_shared/errors';
+
+const myActionSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+});
+
+export const myDomainAction = createAuthenticatedAction(myActionSchema, async (input, context) => {
+  if (input.name === 'forbidden') {
+    throw new ActionError('This name is not allowed for business reasons.', { code: 'FORBIDDEN_NAME' });
+  }
+  // context.appUser is guaranteed to be populated here
+  return { id: 123, savedName: input.name, byUser: context.appUser.id };
+}, 'my-domain-action');
+```
+
 ## Decision guide — "where does my code go?"
 
 - Is it something the user sees or clicks? → `app/` or `components/`
