@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useActionState } from 'react'
 import Link from 'next/link'
 import { Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { Logo } from '@/components/logo'
+import { loginAction } from './actions'
 
 const inputClass =
   'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors'
@@ -11,6 +12,7 @@ const labelClass = 'mb-1.5 block text-sm font-medium text-foreground'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
+  const [state, formAction, pending] = useActionState(loginAction, null)
 
   return (
     <div className="flex min-h-screen">
@@ -58,14 +60,21 @@ export default function LoginPage() {
             Sign in to your Bill Matrix account
           </p>
 
-          <form className="mt-8 space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <form className="mt-8 space-y-4" action={formAction}>
+            {state?.error && (
+              <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
+                {state.error}
+              </div>
+            )}
             {/* Email */}
             <div>
               <label className={labelClass}>Email</label>
               <input
                 type="email"
+                name="email"
                 placeholder="you@company.com"
                 className={inputClass}
+                required
               />
             </div>
 
@@ -75,8 +84,10 @@ export default function LoginPage() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
                   placeholder="••••••••"
                   className={`${inputClass} pr-10`}
+                  required
                 />
                 <button
                   type="button"
@@ -108,10 +119,11 @@ export default function LoginPage() {
 
             {/* Sign in button */}
             <button
-              type="button"
-              className="mt-2 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              type="submit"
+              disabled={pending}
+              className="mt-2 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
-              Sign in
+              {pending ? 'Signing in...' : 'Sign in'}
             </button>
 
             {/* Divider */}

@@ -54,7 +54,7 @@ export default function ProductsPage() {
         <Button
           nativeButton={false}
           render={
-            <Link href="/products/new" className="flex items-center gap-1.5">
+            <Link href="/products/new">
               <Plus className="size-4" />
               Add Product
             </Link>

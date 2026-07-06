@@ -191,7 +191,7 @@ export default function InvoicesPage() {
             size="sm"
             nativeButton={false}
             render={
-              <Link href="/invoices/new" className="flex items-center gap-1.5">
+              <Link href="/invoices/new">
                 <Plus className="size-4" />
                 New Invoice
               </Link>

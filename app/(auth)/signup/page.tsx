@@ -1,7 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import { useActionState } from 'react'
 import { Logo } from '@/components/logo'
+import { signupAction } from './actions'
 
 const inputClass =
   'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors'
@@ -16,6 +18,8 @@ const strengthSegments = [
 ]
 
 export default function SignupPage() {
+  const [state, formAction, pending] = useActionState(signupAction, null)
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-lg">
@@ -28,16 +32,21 @@ export default function SignupPage() {
           Start with a free account. No credit card required.
         </p>
 
-        <form className="mt-8 space-y-4" onSubmit={(e) => e.preventDefault()}>
+        <form className="mt-8 space-y-4" action={formAction}>
+          {state?.error && (
+            <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
+              {state.error}
+            </div>
+          )}
           {/* Business + Owner name */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Business Name</label>
-              <input type="text" className={inputClass} placeholder="Acme Trading Co." />
+              <input type="text" name="businessName" className={inputClass} placeholder="Acme Trading Co." />
             </div>
             <div>
               <label className={labelClass}>Owner Name</label>
-              <input type="text" className={inputClass} placeholder="Rajesh Mehta" />
+              <input type="text" name="ownerName" className={inputClass} placeholder="Rajesh Mehta" required />
             </div>
           </div>
 
@@ -46,6 +55,7 @@ export default function SignupPage() {
             <label className={labelClass}>GSTIN</label>
             <input
               type="text"
+              name="gstin"
               className={`${inputClass} font-mono`}
               placeholder="29AABCU9603R1ZM — Optional"
               maxLength={15}
@@ -58,19 +68,19 @@ export default function SignupPage() {
           {/* Email */}
           <div>
             <label className={labelClass}>Email</label>
-            <input type="email" className={inputClass} placeholder="you@company.com" />
+            <input type="email" name="email" className={inputClass} placeholder="you@company.com" required />
           </div>
 
           {/* Phone */}
           <div>
             <label className={labelClass}>Phone</label>
-            <input type="tel" className={inputClass} placeholder="9876543210" />
+            <input type="tel" name="phone" className={inputClass} placeholder="9876543210" />
           </div>
 
           {/* Password + strength */}
           <div>
             <label className={labelClass}>Password</label>
-            <input type="password" className={inputClass} placeholder="••••••••" />
+            <input type="password" name="password" className={inputClass} placeholder="••••••••" required />
             {/* Strength bar — visual only, shows "Fair" (2/4) by default */}
             <div className="mt-1.5 flex gap-1">
               {strengthSegments.map((seg, i) => (
@@ -86,7 +96,7 @@ export default function SignupPage() {
           {/* Confirm password */}
           <div>
             <label className={labelClass}>Confirm Password</label>
-            <input type="password" className={inputClass} placeholder="••••••••" />
+            <input type="password" name="confirmPassword" className={inputClass} placeholder="••••••••" required />
           </div>
 
           {/* Terms checkbox */}
@@ -110,10 +120,11 @@ export default function SignupPage() {
 
           {/* Submit */}
           <button
-            type="button"
-            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            type="submit"
+            disabled={pending}
+            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            Create account
+            {pending ? 'Creating account...' : 'Create account'}
           </button>
         </form>
 

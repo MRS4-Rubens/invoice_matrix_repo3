@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   FileText,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Logo } from '@/components/logo'
 import { cn } from '@/lib/utils'
+import { authClient } from '@/lib/auth/client'
 
 interface NavItem {
   label: string
@@ -53,8 +54,15 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
   )
 }
 
-export function AppSidebar() {
+export function AppSidebar({ user }: { user?: { name: string, role: string, initials: string } }) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  async function handleSignOut() {
+    await authClient.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-card print:hidden">
@@ -84,16 +92,17 @@ export function AppSidebar() {
       <div className="border-t border-border px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-            DU
+            {user?.initials || 'U'}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-foreground">
-              Demo User
+              {user?.name || 'User'}
             </p>
-            <p className="text-xs text-muted-foreground">Owner</p>
+            <p className="text-xs text-muted-foreground capitalize">{user?.role || 'User'}</p>
           </div>
           <button
             type="button"
+            onClick={handleSignOut}
             aria-label="Sign out"
             className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >

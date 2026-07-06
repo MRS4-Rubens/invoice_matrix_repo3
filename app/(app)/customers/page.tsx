@@ -54,7 +54,7 @@ export default function CustomersPage() {
         <Button
           nativeButton={false}
           render={
-            <Link href="/customers/new" className="flex items-center gap-1.5">
+            <Link href="/customers/new">
               <Plus className="size-4" />
               Add Customer
             </Link>
