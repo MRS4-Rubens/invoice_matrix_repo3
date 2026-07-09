@@ -15,6 +15,13 @@
       "when": 1783274488272,
       "tag": "0001_married_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783580509523,
+      "tag": "0002_redundant_forgotten_one",
+      "breakpoints": true
     }
   ]
 }

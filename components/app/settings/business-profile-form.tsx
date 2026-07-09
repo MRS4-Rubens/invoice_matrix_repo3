@@ -7,7 +7,8 @@ import { saveBusinessProfile } from '@/lib/actions/business/save-business-profil
 import { useState } from 'react';
 import { INDIAN_GST_STATES } from '@/lib/gst/indian-states';
 import { cn } from '@/lib/utils';
-import { Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle, Info } from 'lucide-react';
+import { validateInvoiceNumberFormat, resolveInvoiceNumber } from '@/lib/invoices/number-format';
 
 const inputClass =
   'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors'
@@ -19,7 +20,7 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
   const [success, setSuccess] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   
-  const { register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<BusinessProfileInput>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setError, watch } = useForm<BusinessProfileInput>({
     resolver: zodResolver(
       // @hookform/resolvers (v5.4.0) relies on a slightly older Zod v4 draft signature
       // where _zod.version.minor was 3. Zod v4.4.3 bumped it to 4, breaking the TS structural match.
@@ -43,7 +44,7 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       bank_account_number: business.bank_account_number || '',
       bank_ifsc: business.bank_ifsc || '',
       bank_name: business.bank_name || '',
-      invoice_number_prefix: business.invoice_number_prefix,
+      invoice_number_format: business.invoice_number_format,
       credit_note_number_prefix: business.credit_note_number_prefix,
     } : {
       legal_name: '',
@@ -62,7 +63,7 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       bank_account_number: '',
       bank_ifsc: '',
       bank_name: '',
-      invoice_number_prefix: 'INV',
+      invoice_number_format: 'INV/{FY}/{SEQ:4}',
       credit_note_number_prefix: 'CN',
     }
   });
@@ -87,6 +88,27 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       }
     }
   };
+
+  const invoiceFormat = watch('invoice_number_format');
+  let formatPreview = null;
+  let formatError = null;
+  if (invoiceFormat) {
+    const validState = validateInvoiceNumberFormat(invoiceFormat);
+    if (!validState.valid) {
+      formatError = validState.error;
+    } else {
+      try {
+        const generated = resolveInvoiceNumber(invoiceFormat, {
+          invoiceDate: new Date(),
+          fyLabel: currentFy?.label || '2026-27',
+          sequenceValue: 1
+        });
+        formatPreview = `Preview: ${generated} (${generated.length}/16 characters)`;
+      } catch (e: any) {
+        formatError = e.message;
+      }
+    }
+  }
 
   return (
     <div className="rounded-xl border border-border bg-card p-6">
@@ -217,9 +239,34 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
           <h3 className="mb-4 text-sm font-semibold text-foreground">Document Prefixes</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className={labelClass}>Invoice Prefix</label>
-              <input type="text" className={cn(inputClass, errors.invoice_number_prefix && 'border-destructive focus:ring-destructive')} {...register('invoice_number_prefix')} />
-              {errors.invoice_number_prefix && <p className={errorClass}>{errors.invoice_number_prefix.message}</p>}
+              <div className="flex items-center gap-2 mb-1.5">
+                <label className="text-sm font-medium text-foreground">Invoice Number Format</label>
+                <div className="group relative flex items-center justify-center">
+                  <button type="button" className="text-muted-foreground hover:text-foreground">
+                    <Info className="size-4" />
+                  </button>
+                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 opacity-0 transition-opacity group-hover:opacity-100 bg-popover text-popover-foreground text-xs p-3 rounded-lg shadow-lg border border-border z-10">
+                    <p className="mb-2">
+                      Under GST Rule 46(b), your invoice number must be 16 characters or fewer, and can only contain letters, numbers, hyphens (-), and slashes (/) — no spaces or other symbols.
+                    </p>
+                    <p className="mb-2">
+                      Build your format using these placeholders: {'{SEQ:N}'} = running counter, N digits wide (required, exactly once) · {'{FY}'} = short financial year, e.g. 26-27 · {'{FYYYY}'} = full financial year, e.g. 2026-27 · {'{YYYY}'}/{'{YY}'} = 4 or 2-digit calendar year · {'{MM}'} = 2-digit month · {'{DD}'} = 2-digit day.
+                    </p>
+                    <p>Examples:<br/>
+                    INV/{'{FY}'}/{'{SEQ:4}'} → INV/26-27/0001 (14 chars)<br/>
+                    INV/{'{YY}'}{'{MM}'}/{'{SEQ:3}'} → INV/2607/001 (12 chars)<br/>
+                    INV-{'{DD}'}/{'{MM}'}/{'{YY}'}/{'{SEQ:3}'} → INV-08/07/26/001 (16 chars)</p>
+                  </div>
+                </div>
+              </div>
+              <input type="text" className={cn(inputClass, (errors.invoice_number_format || formatError) && 'border-destructive focus:ring-destructive')} {...register('invoice_number_format')} />
+              {errors.invoice_number_format ? (
+                <p className={errorClass}>{errors.invoice_number_format.message}</p>
+              ) : formatError ? (
+                <p className={errorClass}>{formatError}</p>
+              ) : formatPreview ? (
+                <p className="mt-1.5 text-xs text-muted-foreground">{formatPreview}</p>
+              ) : null}
             </div>
             <div>
               <label className={labelClass}>Credit Note Prefix</label>

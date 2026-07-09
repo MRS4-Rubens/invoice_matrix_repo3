@@ -27,7 +27,7 @@ export const saveBusinessProfile = createAuthenticatedAction(businessProfileSche
     bank_account_number: input.bank_account_number || null,
     bank_ifsc: input.bank_ifsc || null,
     bank_name: input.bank_name || null,
-    invoice_number_prefix: input.invoice_number_prefix,
+    invoice_number_format: input.invoice_number_format,
     credit_note_number_prefix: input.credit_note_number_prefix,
   };
 

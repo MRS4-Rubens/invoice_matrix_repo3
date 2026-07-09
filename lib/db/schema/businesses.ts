@@ -29,7 +29,7 @@ export const businesses = pgTable('businesses', {
   bank_account_number: text('bank_account_number'),
   bank_ifsc: text('bank_ifsc'),
   bank_name: text('bank_name'),
-  invoice_number_prefix: text('invoice_number_prefix').notNull().default('INV'),
+  invoice_number_format: text('invoice_number_format').notNull().default('INV/{FY}/{SEQ:4}'),
   credit_note_number_prefix: text('credit_note_number_prefix').notNull().default('CN'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()

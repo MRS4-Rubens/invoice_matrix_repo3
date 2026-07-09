@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { GSTIN_REGEX, PAN_REGEX, IFSC_REGEX, PINCODE_REGEX } from './patterns';
 import { INDIAN_GST_STATES } from '@/lib/gst/indian-states';
+import { validateInvoiceNumberFormat } from '@/lib/invoices/number-format';
 
 export const businessProfileSchema = z.object({
   legal_name: z.string().min(1, 'Legal business name is required').max(200),
@@ -19,7 +20,15 @@ export const businessProfileSchema = z.object({
   bank_account_number: z.string().max(30).optional().or(z.literal('')),
   bank_ifsc: z.string().transform((v) => v.toUpperCase()).pipe(z.string().regex(IFSC_REGEX, 'Enter a valid IFSC code')).optional().or(z.literal('')),
   bank_name: z.string().max(200).optional().or(z.literal('')),
-  invoice_number_prefix: z.string().min(1).max(10).regex(/^[A-Za-z0-9/-]+$/, 'Only letters, numbers, / and - are allowed'),
+  invoice_number_format: z.string().min(1).superRefine((val, ctx) => {
+    const validState = validateInvoiceNumberFormat(val);
+    if (!validState.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: validState.error,
+      });
+    }
+  }),
   credit_note_number_prefix: z.string().min(1).max(10).regex(/^[A-Za-z0-9/-]+$/, 'Only letters, numbers, / and - are allowed'),
 }).refine(
   (data) => INDIAN_GST_STATES.some((s) => s.code === data.state_code),

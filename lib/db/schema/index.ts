@@ -11,3 +11,4 @@ export * from './credit_notes';
 export * from './credit_note_line_items';
 export * from './payments';
 export * from './audit_log';
+export * from './invoice_number_counters';
