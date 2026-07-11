@@ -4,13 +4,14 @@ import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
 import { ActionError } from '@/lib/actions/_shared/errors';
 import { z } from 'zod';
 import { db } from '@/lib/db/client';
-import { invoices, invoiceLineItems, businesses, customers, taxRates, financialYears } from '@/lib/db/schema';
+import { invoices, invoiceLineItems, businesses, customers, taxRates } from '@/lib/db/schema';
 import { calculateInvoiceTax } from '@/lib/gst/calculate';
 import { TaxCalculationInput, TaxLineItemInput } from '@/lib/gst/types';
 import { eq, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getNextInvoiceNumber } from '@/lib/invoices/numbering';
 import { formatIstDateAsIso } from '@/lib/invoices/ist-date';
+import { getOrCreateCurrentFinancialYear } from '@/lib/invoices/financial-year-rollover';
 
 export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string().uuid() }), async ({ id }, context) => {
   const businessId = context.appUser.business_id;
@@ -82,10 +83,7 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
 
       // 5. Get Next Invoice Number
       const invoiceDate = new Date();
-      // Ensure we use the invoice's financial year, or the current active one
-      const fyResult = await tx.select().from(financialYears).where(eq(financialYears.id, invoice.financial_year_id));
-      if (fyResult.length === 0) throw new ActionError('Financial year not found.', { code: 'NOT_FOUND' });
-      const fy = fyResult[0];
+      const fy = await getOrCreateCurrentFinancialYear(tx, businessId, invoiceDate);
 
       const { invoiceNumber, absoluteSequence } = await getNextInvoiceNumber(tx, {
         businessId: business.id,
@@ -105,6 +103,7 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
       await tx.update(invoices).set({
         invoice_sequence: absoluteSequence,
         invoice_number: invoiceNumber,
+        financial_year_id: fy.id,
         lifecycle_status: 'finalized',
         invoice_date: formatIstDateAsIso(invoiceDate),
         finalized_at: invoiceDate,

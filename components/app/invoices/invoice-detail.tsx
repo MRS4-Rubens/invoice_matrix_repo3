@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Printer, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
+import { paiseToRupees } from '@/lib/money'
 
 function amountInWords(amount: number): string {
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
@@ -185,7 +186,7 @@ export function InvoiceDetail({ invoice }: { invoice: any }) {
 
             <div className="mb-5 border-t border-b border-gray-200 py-2.5">
               <span className="text-sm font-bold text-gray-800">Amount in words: </span>
-              <span className="text-sm italic" style={{ color: '#1a5fa8' }}>{amountInWords(invoice.grand_total_paise)}</span>
+              <span className="text-sm italic" style={{ color: '#1a5fa8' }}>{amountInWords(paiseToRupees(invoice.grand_total_paise))}</span>
             </div>
             
             {invoice.notes && (

@@ -13,6 +13,7 @@ This app uses Next.js Server Actions as the default way pages talk to the backen
 | `app/(marketing)`, `app/(auth)`, `app/(app)`, `app/(admin)` | Page routes, grouped by access level. Not modified by backend phases except to wire in real data. | Existing (v0) |
 | `app/api/` | Route Handlers for true external HTTP endpoints only (webhooks, health checks). Rare — most things are Server Actions instead. | Phase 1 (empty), used starting Phase 16+ |
 | `lib/db/` | Drizzle ORM schema (`lib/db/schema/`) and the database client. The single source of truth for the data model. | Phase 2 |
+| `lib/db/scripts/` | One-off diagnostic or migration scripts (e.g. data correction scripts). These MUST be idempotent, safe to re-run, have clear console output, and be deleted once their one-time job is fully confirmed in production. They should not accumulate. | Phase 8 |
 | `lib/auth/` | Neon Auth / Better Auth setup and session helpers. | Phase 3 |
 | `lib/actions/` | Server Actions, grouped into one subfolder per business domain (`customers/`, `products/`, `invoices/`, `credit-notes/`, `payments/`, `reports/`, `business/`). Each domain folder contains the create/read/update actions for that domain. `_shared/` holds the common wrapper every action uses for validation and error handling — see Phase 4. | Phase 4 (`_shared`), then per domain in later phases |
 | `lib/validations/` | Zod schemas that validate input before it reaches a Server Action. One file per domain, matching `lib/actions/`. | Phase 5 onward |

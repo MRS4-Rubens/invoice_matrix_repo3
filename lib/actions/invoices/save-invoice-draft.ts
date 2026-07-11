@@ -4,11 +4,12 @@ import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
 import { ActionError } from '@/lib/actions/_shared/errors';
 import { invoiceDraftSchema } from '@/lib/validations/invoice';
 import { db } from '@/lib/db/client';
-import { invoices, invoiceLineItems, businesses, customers, taxRates, financialYears } from '@/lib/db/schema';
+import { invoices, invoiceLineItems, businesses, customers, taxRates } from '@/lib/db/schema';
 import { calculateInvoiceTax } from '@/lib/gst/calculate';
 import { TaxCalculationInput, TaxLineItemInput } from '@/lib/gst/types';
 import { eq, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
+import { getOrCreateCurrentFinancialYear } from '@/lib/invoices/financial-year-rollover';
 
 export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, async (input, context) => {
   const businessId = context.appUser.business_id;
@@ -87,9 +88,7 @@ export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, as
       if (!invoiceId) {
         // Need to link to current financial year for draft, though it will be finalized later
         // Just find the active one
-        const activeFys = await tx.select().from(financialYears).where(eq(financialYears.business_id, businessId));
-        const activeFy = activeFys.find(fy => fy.is_current) || activeFys[0];
-        if (!activeFy) throw new ActionError('No financial year configured for business.', { code: 'FY_MISSING' });
+        const activeFy = await getOrCreateCurrentFinancialYear(tx, businessId, new Date());
 
         const [newInv] = await tx.insert(invoices).values({
           ...invoiceData,

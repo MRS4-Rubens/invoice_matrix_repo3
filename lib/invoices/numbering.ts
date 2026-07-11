@@ -3,9 +3,10 @@ import { financialYears, invoiceNumberCounters } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { getResetGranularity, getPeriodKey, resolveInvoiceNumber, validateInvoiceNumberFormat } from './number-format';
 import { ActionError } from '@/lib/actions/_shared/errors';
+import type { DbTransaction } from '@/lib/db/client';
 
 export async function getNextInvoiceNumber(
-  tx: any,
+  tx: DbTransaction,
   params: {
     businessId: string;
     financialYearId: string;

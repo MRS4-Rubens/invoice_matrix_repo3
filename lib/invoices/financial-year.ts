@@ -1,11 +1,12 @@
+import { getIstDateParts } from './ist-date';
+
 export function getIndianFinancialYearForDate(date: Date): { label: string; startDate: Date; endDate: Date } {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth(); // 0-indexed, so 3 = April
-  const startYear = month >= 3 ? year : year - 1;
+  const { year, month } = getIstDateParts(date); // month is 1-12 here, NOT 0-indexed
+  const startYear = month >= 4 ? year : year - 1; // April = month 4 in this 1-indexed scheme
   const endYear = startYear + 1;
-  const startDate = new Date(Date.UTC(startYear, 3, 1)); // April 1
-  const endDate = new Date(Date.UTC(endYear, 2, 31)); // March 31
-  const label = `${startYear}-${String(endYear).slice(-2)}`; // e.g. "2026-27"
+  const startDate = new Date(Date.UTC(startYear, 3, 1));
+  const endDate = new Date(Date.UTC(endYear, 2, 31));
+  const label = `${startYear}-${String(endYear).slice(-2)}`;
   return { label, startDate, endDate };
 }
 

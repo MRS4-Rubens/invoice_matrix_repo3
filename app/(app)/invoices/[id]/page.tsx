@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { getCurrentAppUser } from '@/lib/auth/session';
 import { resolveInvoiceNumber } from '@/lib/invoices/number-format';
+import { getIndianFinancialYearForDate } from '@/lib/invoices/financial-year';
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,15 +31,16 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     const allTaxRates = await db.select().from(taxRates).where(eq(taxRates.is_active, true));
 
     const activeFys = await db.select().from(financialYears).where(eq(financialYears.business_id, appUser.business_id));
-    const activeFy = activeFys.find(fy => fy.is_current) || activeFys[0];
+    const currentLabel = getIndianFinancialYearForDate(new Date()).label;
+    const activeFy = activeFys.find(fy => fy.label === currentLabel);
     
     let invoiceNumberFormatPreview = 'DRAFT';
-    if (business && activeFy) {
+    if (business) {
       try {
         invoiceNumberFormatPreview = resolveInvoiceNumber(business.invoice_number_format, {
           invoiceDate: new Date(),
-          fyLabel: activeFy.label,
-          sequenceValue: activeFy.invoice_sequence_counter + 1
+          fyLabel: activeFy ? activeFy.label : currentLabel,
+          sequenceValue: activeFy ? activeFy.invoice_sequence_counter + 1 : 1
         });
       } catch (e) {}
     }
