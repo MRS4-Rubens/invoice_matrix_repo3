@@ -18,11 +18,15 @@ export default async function AppLayout({
   } : undefined
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <AppSidebar user={userProp} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <AppTopbar />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
+    <div className="flex h-screen overflow-hidden bg-background print:overflow-visible print:h-auto">
+      <div className="print:hidden">
+        <AppSidebar user={userProp} />
+      </div>
+      <div className="flex flex-1 flex-col overflow-hidden print:overflow-visible">
+        <div className="print:hidden">
+          <AppTopbar />
+        </div>
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 print:overflow-visible print:p-0">{children}</main>
       </div>
     </div>
   )

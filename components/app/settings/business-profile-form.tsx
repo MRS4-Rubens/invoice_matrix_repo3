@@ -46,6 +46,7 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       bank_name: business.bank_name || '',
       invoice_number_format: business.invoice_number_format,
       credit_note_number_prefix: business.credit_note_number_prefix,
+      invoice_terms: business.invoice_terms || '',
     } : {
       legal_name: '',
       trade_name: '',
@@ -65,6 +66,7 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       bank_name: '',
       invoice_number_format: 'INV/{FY}/{SEQ:4}',
       credit_note_number_prefix: 'CN',
+      invoice_terms: '1. Goods once sold will not be taken back.\n2. Payment to be made within 30 days from the date of invoice.\n3. Interest @ 24% per annum will be charged on overdue invoices until payment is received.',
     }
   });
 
@@ -272,6 +274,11 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
               <label className={labelClass}>Credit Note Prefix</label>
               <input type="text" className={cn(inputClass, errors.credit_note_number_prefix && 'border-destructive focus:ring-destructive')} {...register('credit_note_number_prefix')} />
               {errors.credit_note_number_prefix && <p className={errorClass}>{errors.credit_note_number_prefix.message}</p>}
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Invoice Terms & Conditions</label>
+              <textarea rows={4} className={cn(inputClass, 'resize-y', errors.invoice_terms && 'border-destructive focus:ring-destructive')} {...register('invoice_terms')} />
+              {errors.invoice_terms && <p className={errorClass}>{errors.invoice_terms.message}</p>}
             </div>
           </div>
         </div>

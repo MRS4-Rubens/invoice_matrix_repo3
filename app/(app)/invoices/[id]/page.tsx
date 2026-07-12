@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentAppUser } from '@/lib/auth/session';
 import { resolveInvoiceNumber } from '@/lib/invoices/number-format';
 import { getIndianFinancialYearForDate } from '@/lib/invoices/financial-year';
+import { InvoicePrintView } from '@/components/app/invoices/invoice-print-view';
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -76,5 +77,26 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   }
 
   // Finalized
-  return <InvoiceDetail invoice={{...invoice, business_name: business.legal_name}} />;
+  return (
+    <>
+      <div className="print:hidden">
+        <InvoiceDetail invoice={{...invoice, business_name: business.legal_name}} />
+      </div>
+      <div className="hidden print:block">
+        <InvoicePrintView 
+          invoice={{
+            ...invoice, 
+            business_name: business.legal_name,
+            city: business.city,
+            phone: business.phone,
+            bank_name: business.bank_name,
+            bank_account_number: business.bank_account_number,
+            bank_ifsc: business.bank_ifsc,
+            invoice_terms: business.invoice_terms
+          }} 
+          businessStateCode={business.state_code} 
+        />
+      </div>
+    </>
+  );
 }

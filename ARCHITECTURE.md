@@ -20,7 +20,7 @@ This app uses Next.js Server Actions as the default way pages talk to the backen
 | `lib/gst/` | The GST tax calculation engine — pure functions only, no database or UI code. This is the most important folder in the app for correctness; keep it isolated and testable. | Phase 8 |
 | `lib/gst/units.ts` | The official, government-fixed list of GST Unit Quantity Codes (UQC), used for product unit-of-measurement selection and (in later phases) invoice line items. This is a closed list — do not add codes that aren't officially recognized by CBIC. | Phase 7 |
 | `lib/invoices/` | Invoice-numbering logic (financial-year-aware sequencing). Kept separate from `lib/actions/invoices/` because numbering is a pure rule, not a database action. | Phase 9 |
-| `lib/pdf/` | Invoice/credit-note PDF template and generation logic. | Phase 10 |
+| `lib/pdf/` | Currently contains only `number-to-words.ts` (Indian numbering system for amount-in-words). Invoice printing/saving is handled entirely via the browser's native print dialog and `components/app/invoices/invoice-print-view.tsx`. Note: Phase 11 (archival) and Phase 16 (email) will need real server-generated PDF bytes, which this phase deliberately does not provide — that will be designed when those phases are implemented. | Phase 10 |
 | `lib/storage/` | iDrive e2 (S3-compatible) client for archiving finalized invoice PDFs. | Phase 11 |
 | `lib/excel/` | ExcelJS-based export logic for the monthly ITR/GST export. | Phase 15 |
 | `lib/email/` | Resend client (`lib/email/`) and email templates (`lib/email/templates/`). | Phase 16 |

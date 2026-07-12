@@ -29,6 +29,7 @@ export const saveBusinessProfile = createAuthenticatedAction(businessProfileSche
     bank_name: input.bank_name || null,
     invoice_number_format: input.invoice_number_format,
     credit_note_number_prefix: input.credit_note_number_prefix,
+    invoice_terms: input.invoice_terms,
   };
 
   let businessId = context.appUser.business_id;
