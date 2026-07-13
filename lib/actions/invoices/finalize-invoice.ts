@@ -12,6 +12,8 @@ import { revalidatePath } from 'next/cache';
 import { getNextInvoiceNumber } from '@/lib/invoices/numbering';
 import { formatIstDateAsIso } from '@/lib/invoices/ist-date';
 import { getOrCreateCurrentFinancialYear } from '@/lib/invoices/financial-year-rollover';
+import { logError } from '@/lib/actions/_shared/logger';
+import { archiveInvoicePdf } from '@/lib/storage/archive-invoice';
 
 export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string().uuid() }), async ({ id }, context) => {
   const businessId = context.appUser.business_id;
@@ -20,7 +22,7 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       // 1. Fetch Draft Invoice
       const existing = await tx.select().from(invoices).where(eq(invoices.id, id));
       if (existing.length === 0) throw new ActionError('Invoice not found.', { code: 'NOT_FOUND' });
@@ -94,10 +96,11 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
       });
 
       // 6. Snapshot fields
+      const cityStatePincode = [customer.city, customer.state_code, customer.pincode].filter(Boolean).join(', ');
       const billingAddressSnapshot = [
         customer.address_line1,
         customer.address_line2,
-        `${customer.city}, ${customer.state_code} ${customer.pincode}`
+        cityStatePincode
       ].filter(Boolean).join('\n');
 
       await tx.update(invoices).set({
@@ -125,6 +128,17 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
 
       return { invoiceId: id, invoiceNumber };
     });
+    
+    // Archival is intentionally decoupled from the finalize transaction — a slow or temporarily-down 
+    // PDF provider must never block a business owner from finalizing a real invoice. If this fails here, 
+    // the daily retry cron (Task 7) will catch it.
+    archiveInvoicePdf(id).then(result => {
+      if (!result.success) {
+        logError('finalize-invoice', new Error(result.error || 'Archival failed'), { invoiceId: id });
+      }
+    });
+
+    return result;
   } catch (error) {
     if (error instanceof ActionError) throw error;
     console.error('Error finalizing invoice:', error);

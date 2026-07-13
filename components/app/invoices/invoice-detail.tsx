@@ -5,6 +5,7 @@ import { ArrowLeft, Printer, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { paiseToRupees } from '@/lib/money'
+import { getArchivedPdfUrl } from '@/lib/actions/invoices/get-archived-pdf-url'
 
 function amountInWords(amount: number): string {
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
@@ -54,9 +55,24 @@ function TotalRow({ label, value, colored }: { label: string; value: string; col
 
 export function InvoiceDetail({ invoice }: { invoice: any }) {
   const [printSize, setPrintSize] = useState<'A4' | 'A5'>('A4')
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
 
   const isIntra = invoice.total_igst_paise === 0;
   const supplyLabel = isIntra ? 'Intra-State' : 'Inter-State'
+
+  async function handleDownloadArchived() {
+    setIsDownloading(true)
+    setDownloadError(null)
+    const res = await getArchivedPdfUrl({ id: invoice.id })
+    if (res.success) {
+      window.open(res.data.url, '_blank')
+    } else {
+      setDownloadError(res.error.message)
+    }
+    setIsDownloading(false)
+  }
+
 
   return (
     <>
@@ -85,12 +101,22 @@ export function InvoiceDetail({ invoice }: { invoice: any }) {
           </Link>
           <div>
             <h1 className="text-xl font-bold text-foreground">Invoice Preview</h1>
-            <p className="text-xs text-muted-foreground">{invoice.invoice_number}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">{invoice.invoice_number}</p>
+              {invoice.archival_status === 'pending' && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border">Archival copy pending</span>}
+              {invoice.archival_status === 'failed' && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border">Archival copy will be retried automatically</span>}
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex overflow-hidden rounded-lg border border-border text-xs">
+          {downloadError && <span className="text-xs text-destructive">{downloadError}</span>}
+          {invoice.archival_status === 'archived' && (
+            <Button type="button" size="sm" variant="outline" onClick={handleDownloadArchived} disabled={isDownloading}>
+              <Download className="size-4" /> {isDownloading ? 'Loading...' : 'View Archived Copy'}
+            </Button>
+          )}
+          <div className="flex overflow-hidden rounded-lg border border-border text-xs ml-2">
             {(['A4', 'A5'] as const).map((s) => (
               <button key={s} type="button" onClick={() => setPrintSize(s)} className={printSize === s ? 'bg-primary px-3 py-1.5 font-medium text-primary-foreground' : 'bg-background px-3 py-1.5 text-muted-foreground transition-colors hover:bg-accent first:border-r first:border-border'}>
                 {s}

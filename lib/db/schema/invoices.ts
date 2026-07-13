@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm';
 import { businesses } from './businesses';
 import { customers } from './customers';
 import { financialYears } from './financial_years';
-import { invoiceTypeEnum, lifecycleStatusEnum, paymentStatusEnum } from './enums';
+import { invoiceTypeEnum, lifecycleStatusEnum, paymentStatusEnum, archivalStatusEnum } from './enums';
 import { invoiceLineItems } from './invoice_line_items';
 import { payments } from './payments';
 import { creditNotes } from './credit_notes';
@@ -32,7 +32,11 @@ export const invoices = pgTable('invoices', {
   total_tax_paise: integer('total_tax_paise').notNull().default(0),
   grand_total_paise: integer('grand_total_paise').notNull().default(0),
   notes: text('notes'),
+  // pdf_storage_key (existing, Phase 2) holds the iDrive e2 object key once archival_status is 'archived'. credit_notes will get equivalent fields when Phase 12 is built, following this same pattern.
   pdf_storage_key: text('pdf_storage_key'),
+  archival_status: archivalStatusEnum('archival_status').notNull().default('pending'),
+  archival_attempts: integer('archival_attempts').notNull().default(0),
+  archived_at: timestamp('archived_at', { withTimezone: true }),
   finalized_at: timestamp('finalized_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
@@ -42,6 +46,7 @@ export const invoices = pgTable('invoices', {
   index('invoices_customer_id_idx').on(table.customer_id),
   index('invoices_lifecycle_status_idx').on(table.lifecycle_status),
   index('invoices_payment_status_idx').on(table.payment_status),
+  index('invoices_archival_status_idx').on(table.archival_status),
   index('invoices_business_id_idx').on(table.business_id)
 ]);
 

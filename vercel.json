@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/retry-invoice-archival",
+      "schedule": "0 20 * * *"
+    }
+  ]
+}

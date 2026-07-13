@@ -20,8 +20,9 @@ This app uses Next.js Server Actions as the default way pages talk to the backen
 | `lib/gst/` | The GST tax calculation engine — pure functions only, no database or UI code. This is the most important folder in the app for correctness; keep it isolated and testable. | Phase 8 |
 | `lib/gst/units.ts` | The official, government-fixed list of GST Unit Quantity Codes (UQC), used for product unit-of-measurement selection and (in later phases) invoice line items. This is a closed list — do not add codes that aren't officially recognized by CBIC. | Phase 7 |
 | `lib/invoices/` | Invoice-numbering logic (financial-year-aware sequencing). Kept separate from `lib/actions/invoices/` because numbering is a pure rule, not a database action. | Phase 9 |
-| `lib/pdf/` | Currently contains only `number-to-words.ts` (Indian numbering system for amount-in-words). Invoice printing/saving is handled entirely via the browser's native print dialog and `components/app/invoices/invoice-print-view.tsx`. Note: Phase 11 (archival) and Phase 16 (email) will need real server-generated PDF bytes, which this phase deliberately does not provide — that will be designed when those phases are implemented. | Phase 10 |
-| `lib/storage/` | iDrive e2 (S3-compatible) client for archiving finalized invoice PDFs. | Phase 11 |
+| `lib/pdf/` | Currently contains `number-to-words.ts` and `html-to-pdf-provider.ts` (swappable CustomJS API for external PDF rendering). | Phase 10 & 11 |
+| `lib/storage/` | iDrive e2 (S3-compatible) client for archiving finalized invoice PDFs, and orchestration logic. | Phase 11 |
+| `lib/security/` | Token and signature generation (e.g. HMAC-SHA256 tokens for external route access). | Phase 11 |
 | `lib/excel/` | ExcelJS-based export logic for the monthly ITR/GST export. | Phase 15 |
 | `lib/email/` | Resend client (`lib/email/`) and email templates (`lib/email/templates/`). | Phase 16 |
 | `lib/rate-limit/` | Upstash Redis-based rate limiting, applied to sensitive Server Actions. | Phase 17 |
@@ -90,6 +91,13 @@ Data-entry forms in this app use React Hook Form combined with the same Zod sche
 - Is it a pure calculation with no side effects (tax math, numbering rules)? → `lib/gst/` or `lib/invoices/`
 - Is it talking to an external service (storage, email, rate limiting)? → its own `lib/{service}/` folder
 - Is it a type used in more than one place? → `types/`
+
+## Archival Strategy (Phase 11)
+
+Archival of finalized invoices happens automatically upon finalization using a best-effort approach (non-blocking). 
+- If the external PDF provider or storage provider is slow/down, the invoice is still finalized to ensure business continuity.
+- A daily cron job serves as a safety net to retry pending or failed archival jobs.
+- **Out of scope for MVP:** Formal "cold tier" data migration (after year 6) and reviewed deletion (after year 9) were deliberately scoped OUT of this MVP phase. Neon's storage isn't under real pressure at this business's scale, and irreversible deletion of legal financial records deserves to be built closer to when it's actually needed, with a human reviewing and confirming each batch rather than a fully unattended automated process.
 
 ## Why this structure
 

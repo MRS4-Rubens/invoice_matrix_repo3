@@ -3,15 +3,25 @@ import { sql } from 'drizzle-orm';
 
 async function main() {
   try {
-    await db.execute(sql`ALTER TABLE businesses ADD COLUMN invoice_terms text NOT NULL DEFAULT '1. Goods once sold will not be taken back.\n2. Payment to be made within 30 days from the date of invoice.\n3. Interest @ 24% per annum will be charged on overdue invoices until payment is received.'`);
+    // 1. Create enum type
+    await db.execute(sql`DO $$ BEGIN
+      CREATE TYPE "archival_status" AS ENUM ('pending', 'archived', 'failed');
+    EXCEPTION
+      WHEN duplicate_object THEN null;
+    END $$;`);
+
+    // 2. Add columns to invoices
+    await db.execute(sql`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "archival_status" "archival_status" NOT NULL DEFAULT 'pending';`);
+    await db.execute(sql`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "archival_attempts" integer NOT NULL DEFAULT 0;`);
+    await db.execute(sql`ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "archived_at" timestamp with time zone;`);
+    
+    // Create index
+    await db.execute(sql`CREATE INDEX IF NOT EXISTS "invoices_archival_status_idx" ON "invoices" ("archival_status");`);
+
     console.log("Migration successful.");
   } catch (err: any) {
-    if (err.message.includes('already exists')) {
-      console.log('Column already exists.');
-    } else {
-      console.error(err);
-      process.exit(1);
-    }
+    console.error(err);
+    process.exit(1);
   }
   process.exit(0);
 }
