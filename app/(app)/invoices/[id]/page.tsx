@@ -9,6 +9,7 @@ import { getCurrentAppUser } from '@/lib/auth/session';
 import { resolveInvoiceNumber } from '@/lib/invoices/number-format';
 import { getIndianFinancialYearForDate } from '@/lib/invoices/financial-year';
 import { InvoicePrintView } from '@/components/app/invoices/invoice-print-view';
+import { listPayments } from '@/lib/actions/payments/list-payments';
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -77,10 +78,16 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   }
 
   // Finalized
+  let payments: any[] = [];
+  if (invoice?.lifecycle_status === 'finalized') {
+    const pResult = await listPayments({ invoice_id: id });
+    if (pResult.success) payments = pResult.data;
+  }
+
   return (
     <>
       <div className="print:hidden">
-        <InvoiceDetail invoice={{...invoice, business_name: business.legal_name}} />
+        <InvoiceDetail invoice={{...invoice, business_name: business.legal_name}} payments={payments} />
       </div>
       <div className="hidden print:block">
         <InvoicePrintView 

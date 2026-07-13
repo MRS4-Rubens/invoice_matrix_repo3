@@ -6,6 +6,7 @@ import { Search, Plus, Printer, Pencil, Trash2, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/app/empty-state'
 import { cn } from '@/lib/utils'
+import { getDisplayInvoiceStatus, getDisplayStatusLabel } from '@/lib/invoices/status'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const CURRENT_YEAR = new Date().getFullYear()
@@ -123,9 +124,15 @@ export function InvoicesClient({ initialInvoices }: { initialInvoices: any[] }) 
                       {formatINR(inv.grand_total_paise)}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={cn('inline-flex items-center rounded px-2 py-0.5 text-xs font-medium', inv.lifecycle_status === 'finalized' ? 'bg-success-subtle text-success' : 'bg-muted text-muted-foreground')}>
-                        {inv.lifecycle_status}
-                      </span>
+                      {(() => {
+                        const status = getDisplayInvoiceStatus(inv);
+                        const { label, colorClass } = getDisplayStatusLabel(status);
+                        return (
+                          <span className={cn('inline-flex items-center rounded px-2.5 py-0.5 text-xs font-semibold', colorClass)}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">

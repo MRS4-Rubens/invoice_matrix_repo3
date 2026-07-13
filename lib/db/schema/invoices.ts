@@ -20,6 +20,8 @@ export const invoices = pgTable('invoices', {
   lifecycle_status: lifecycleStatusEnum('lifecycle_status').notNull().default('draft'),
   payment_status: paymentStatusEnum('payment_status').notNull().default('unpaid'),
   invoice_date: date('invoice_date'),
+  // Computed and locked in at finalization time from the business's payment_due_days setting at that moment — changing payment_due_days later never affects already-finalized invoices, consistent with the snapshot-immutability principle used throughout this app.
+  due_date: date('due_date'),
   place_of_supply_state_code: varchar('place_of_supply_state_code', { length: 2 }),
   seller_gstin_snapshot: varchar('seller_gstin_snapshot', { length: 15 }),
   billing_name_snapshot: text('billing_name_snapshot'),

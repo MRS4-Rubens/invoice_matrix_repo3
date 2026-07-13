@@ -31,6 +31,7 @@ export const businessProfileSchema = z.object({
   }),
   credit_note_number_prefix: z.string().min(1).max(10).regex(/^[A-Za-z0-9/-]+$/, 'Only letters, numbers, / and - are allowed'),
   invoice_terms: z.string().max(2000),
+  payment_due_days: z.coerce.number().int().min(0).max(365),
 }).refine(
   (data) => INDIAN_GST_STATES.some((s) => s.code === data.state_code),
   { message: 'Select a valid state', path: ['state_code'] }

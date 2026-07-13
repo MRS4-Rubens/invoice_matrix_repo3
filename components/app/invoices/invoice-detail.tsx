@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { paiseToRupees } from '@/lib/money'
 import { getArchivedPdfUrl } from '@/lib/actions/invoices/get-archived-pdf-url'
+import { getDisplayInvoiceStatus, getDisplayStatusLabel } from '@/lib/invoices/status'
+import { PaymentSection } from './payment-section'
+import { cn } from '@/lib/utils'
 
 function amountInWords(amount: number): string {
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
@@ -53,7 +56,7 @@ function TotalRow({ label, value, colored }: { label: string; value: string; col
   )
 }
 
-export function InvoiceDetail({ invoice }: { invoice: any }) {
+export function InvoiceDetail({ invoice, payments = [] }: { invoice: any, payments?: any[] }) {
   const [printSize, setPrintSize] = useState<'A4' | 'A5'>('A4')
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
@@ -100,8 +103,19 @@ export function InvoiceDetail({ invoice }: { invoice: any }) {
             <ArrowLeft className="size-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Invoice Preview</h1>
-            <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-foreground flex items-center gap-3">
+              Invoice Preview
+              {(() => {
+                const status = getDisplayInvoiceStatus(invoice);
+                const { label, colorClass } = getDisplayStatusLabel(status);
+                return (
+                  <span className={cn('text-xs px-2.5 py-0.5 rounded font-semibold', colorClass)}>
+                    {label}
+                  </span>
+                );
+              })()}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
               <p className="text-xs text-muted-foreground">{invoice.invoice_number}</p>
               {invoice.archival_status === 'pending' && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border">Archival copy pending</span>}
               {invoice.archival_status === 'failed' && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border">Archival copy will be retried automatically</span>}
@@ -225,6 +239,8 @@ export function InvoiceDetail({ invoice }: { invoice: any }) {
             <p className="mt-4 text-center text-xs text-gray-400">This is a computer-generated invoice</p>
           </div>
         </div>
+        
+        <PaymentSection invoice={invoice} payments={payments} />
       </div>
     </>
   )

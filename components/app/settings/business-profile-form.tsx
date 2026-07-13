@@ -47,6 +47,7 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       invoice_number_format: business.invoice_number_format,
       credit_note_number_prefix: business.credit_note_number_prefix,
       invoice_terms: business.invoice_terms || '',
+      payment_due_days: business.payment_due_days ?? 30,
     } : {
       legal_name: '',
       trade_name: '',
@@ -67,6 +68,7 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       invoice_number_format: 'INV/{FY}/{SEQ:4}',
       credit_note_number_prefix: 'CN',
       invoice_terms: '1. Goods once sold will not be taken back.\n2. Payment to be made within 30 days from the date of invoice.\n3. Interest @ 24% per annum will be charged on overdue invoices until payment is received.',
+      payment_due_days: 30,
     }
   });
 
@@ -274,6 +276,11 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
               <label className={labelClass}>Credit Note Prefix</label>
               <input type="text" className={cn(inputClass, errors.credit_note_number_prefix && 'border-destructive focus:ring-destructive')} {...register('credit_note_number_prefix')} />
               {errors.credit_note_number_prefix && <p className={errorClass}>{errors.credit_note_number_prefix.message}</p>}
+            </div>
+            <div>
+              <label className={labelClass}>Payment Due (Days)</label>
+              <input type="number" min="0" max="365" className={cn(inputClass, errors.payment_due_days && 'border-destructive focus:ring-destructive')} {...register('payment_due_days')} />
+              {errors.payment_due_days && <p className={errorClass}>{errors.payment_due_days.message}</p>}
             </div>
             <div className="sm:col-span-2">
               <label className={labelClass}>Invoice Terms & Conditions</label>

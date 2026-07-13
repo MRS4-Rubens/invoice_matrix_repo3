@@ -10,7 +10,7 @@ import { TaxCalculationInput, TaxLineItemInput } from '@/lib/gst/types';
 import { eq, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getNextInvoiceNumber } from '@/lib/invoices/numbering';
-import { formatIstDateAsIso } from '@/lib/invoices/ist-date';
+import { formatIstDateAsIso, getIstDateParts } from '@/lib/invoices/ist-date';
 import { getOrCreateCurrentFinancialYear } from '@/lib/invoices/financial-year-rollover';
 import { logError } from '@/lib/actions/_shared/logger';
 import { archiveInvoicePdf } from '@/lib/storage/archive-invoice';
@@ -103,12 +103,17 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
         cityStatePincode
       ].filter(Boolean).join('\n');
 
+      const { year, month, day } = getIstDateParts(invoiceDate);
+      const dueIstDate = new Date(Date.UTC(year, month - 1, day + business.payment_due_days));
+      const dueDateString = `${dueIstDate.getUTCFullYear()}-${String(dueIstDate.getUTCMonth() + 1).padStart(2, '0')}-${String(dueIstDate.getUTCDate()).padStart(2, '0')}`;
+
       await tx.update(invoices).set({
         invoice_sequence: absoluteSequence,
         invoice_number: invoiceNumber,
         financial_year_id: fy.id,
         lifecycle_status: 'finalized',
         invoice_date: formatIstDateAsIso(invoiceDate),
+        due_date: dueDateString,
         finalized_at: invoiceDate,
         place_of_supply_state_code: customer.state_code,
         seller_gstin_snapshot: business.gstin,

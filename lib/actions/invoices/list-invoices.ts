@@ -17,6 +17,8 @@ export const listInvoices = createAuthenticatedAction(z.object({}), async (_, co
       invoice_date: invoices.invoice_date,
       grand_total_paise: invoices.grand_total_paise,
       lifecycle_status: invoices.lifecycle_status,
+      payment_status: invoices.payment_status,
+      due_date: invoices.due_date,
       customer_name: customers.name
     })
     .from(invoices)

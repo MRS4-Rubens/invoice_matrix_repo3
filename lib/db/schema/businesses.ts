@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, timestamp, uuid, check } from 'drizzle-orm/pg-core';
+import { pgTable, text, varchar, timestamp, uuid, check, integer } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { registrationTypeEnum } from './enums'; // I will create an enums file
 import { users } from './users';
@@ -32,6 +32,7 @@ export const businesses = pgTable('businesses', {
   invoice_terms: text('invoice_terms').notNull().default('1. Goods once sold will not be taken back.\n2. Payment to be made within 30 days from the date of invoice.\n3. Interest @ 24% per annum will be charged on overdue invoices until payment is received.'),
   invoice_number_format: text('invoice_number_format').notNull().default('INV/{FY}/{SEQ:4}'),
   credit_note_number_prefix: text('credit_note_number_prefix').notNull().default('CN'),
+  payment_due_days: integer('payment_due_days').notNull().default(30),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [

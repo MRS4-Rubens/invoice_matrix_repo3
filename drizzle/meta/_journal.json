@@ -36,6 +36,13 @@
       "when": 1783882002207,
       "tag": "0004_fine_prowler",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783929564369,
+      "tag": "0005_lovely_plazm",
+      "breakpoints": true
     }
   ]
 }
