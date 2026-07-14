@@ -27,7 +27,7 @@ This app uses Next.js Server Actions as the default way pages talk to the backen
 | `lib/pdf/` | Currently contains `number-to-words.ts` and `html-to-pdf-provider.ts` (swappable CustomJS API for external PDF rendering). | Phase 10 & 11 |
 | `lib/storage/` | iDrive e2 (S3-compatible) client for archiving finalized invoice PDFs, and orchestration logic. | Phase 11 |
 | `lib/security/` | Token and signature generation (e.g. HMAC-SHA256 tokens for external route access). | Phase 11 |
-| `lib/excel/` | ExcelJS-based export logic for the monthly ITR/GST export. | Phase 15 |
+| `lib/excel/` | ExcelJS-based export logic for the monthly ITR/GST export. Deliberate design choice: this is a working "sales register" for a CA to review and use for return preparation, not a direct-upload-ready GSTN portal file format. A fresh export should be sanity-checked against the actual CA's expected column format the first time it's used for real. The credit notes sheet will automatically populate once Phase 12 is built, with no code changes needed. | Phase 15 |
 | `lib/email/` | Resend client (`lib/email/`) and email templates (`lib/email/templates/`). | Phase 16 |
 | `lib/rate-limit/` | Upstash Redis-based rate limiting, applied to sensitive Server Actions. | Phase 17 |
 | `lib/money.ts` | Shared money utilities: paise↔rupee conversion (rupeesToPaise, paiseToRupees) and Indian currency formatting (formatPaiseAsInr). All monetary amounts in this app are stored as integer paise — this file is the single source of truth for converting between storage and display. Used by product pricing (Phase 7) and will be used by the GST tax engine and invoice line items (Phase 8+). | Phase 7 |

@@ -26,6 +26,8 @@ interface ReportsClientProps {
   topProducts: ProductData[]
   currentPeriod: string
   periodLabel: string
+  startDate: string
+  endDate: string
 }
 
 const reportCards = [
@@ -55,7 +57,7 @@ const reportCards = [
   },
 ]
 
-export function ReportsClient({ salesData, topCustomers, topProducts, currentPeriod, periodLabel }: ReportsClientProps) {
+export function ReportsClient({ salesData, topCustomers, topProducts, currentPeriod, periodLabel, startDate, endDate }: ReportsClientProps) {
   const router = useRouter()
   
   const handlePeriodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -105,12 +107,21 @@ export function ReportsClient({ salesData, topCustomers, topProducts, currentPer
             <div className="flex-1">
               <p className="font-semibold text-foreground">{title}</p>
               <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-              <button
-                type="button"
-                className="mt-3 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-              >
-                {cta}
-              </button>
+              {cta === 'Export Excel' ? (
+                <a
+                  href={`/api/reports/export?startDate=${startDate}&endDate=${endDate}&label=${encodeURIComponent(periodLabel)}`}
+                  className="mt-3 inline-block rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  {cta}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-3 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  {cta}
+                </button>
+              )}
             </div>
           </div>
         ))}

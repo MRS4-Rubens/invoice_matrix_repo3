@@ -65,6 +65,8 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
       topProducts={topProducts} 
       currentPeriod={period}
       periodLabel={periodLabel}
+      startDate={startDate}
+      endDate={endDate}
     />
   )
 }
