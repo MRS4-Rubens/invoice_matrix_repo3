@@ -2,6 +2,7 @@
 
 import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
 import { ActionError } from '@/lib/actions/_shared/errors';
+import { sensitiveActionLimiter } from '@/lib/rate-limit/upstash';
 import { z } from 'zod';
 import { db } from '@/lib/db/client';
 import { invoices, invoiceLineItems, businesses, customers, taxRates } from '@/lib/db/schema';
@@ -149,4 +150,4 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
     console.error('Error finalizing invoice:', error);
     throw new ActionError('We could not finalize the invoice. Please try again.', { code: 'TRANSACTION_FAILED' });
   }
-}, 'finalize-invoice');
+}, 'finalize-invoice', { rateLimit: { limiter: sensitiveActionLimiter, keyPrefix: 'finalize-invoice' } });

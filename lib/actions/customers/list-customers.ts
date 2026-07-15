@@ -8,7 +8,7 @@ import { and, eq, ilike, or, asc } from 'drizzle-orm';
 import { z } from 'zod';
 
 const listCustomersSchema = z.object({
-  search: z.string().optional(),
+  search: z.string().max(100).optional(),
   includeInactive: z.boolean().default(false),
 });
 

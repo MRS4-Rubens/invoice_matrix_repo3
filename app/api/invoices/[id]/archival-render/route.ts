@@ -3,6 +3,7 @@ import { db } from '@/lib/db/client';
 import { invoices, invoiceLineItems, businesses } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyArchivalToken } from '@/lib/security/archival-token';
+import { exportLimiter, checkRateLimit, getClientIp } from '@/lib/rate-limit/upstash';
 const { renderToStaticMarkup } = require('react-dom/server');
 import { InvoicePrintView } from '@/components/app/invoices/invoice-print-view';
 import fs from 'fs';
@@ -37,6 +38,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { valid, invoiceId } = verifyArchivalToken(token);
   if (!valid || invoiceId !== id) {
     return new Response('Unauthorized', { status: 401 });
+  }
+
+  const ip = getClientIp(request.headers);
+  const { allowed, retryAfterSeconds } = await checkRateLimit(exportLimiter, `archival-render:${ip}`);
+  if (!allowed) {
+    return new Response(`Too Many Requests. Retry after ${retryAfterSeconds} seconds.`, {
+      status: 429,
+      headers: { 'Retry-After': retryAfterSeconds.toString() }
+    });
   }
 
   // Fetch the invoice (verified finalized)

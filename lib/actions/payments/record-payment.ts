@@ -2,6 +2,7 @@
 
 import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
 import { ActionError } from '@/lib/actions/_shared/errors';
+import { sensitiveActionLimiter } from '@/lib/rate-limit/upstash';
 import { recordPaymentSchema } from '@/lib/validations/payment';
 import { db } from '@/lib/db/client';
 import { invoices, payments } from '@/lib/db/schema';
@@ -87,4 +88,4 @@ export const recordPayment = createAuthenticatedAction(recordPaymentSchema, asyn
     console.error('Error recording payment:', error);
     throw new ActionError('We could not record the payment. Please try again.', { code: 'TRANSACTION_FAILED' });
   }
-}, 'record-payment');
+}, 'record-payment', { rateLimit: { limiter: sensitiveActionLimiter, keyPrefix: 'record-payment' } });

@@ -8,8 +8,8 @@ import { paiseToRupees } from '@/lib/money';
 import { z } from 'zod';
 
 const getSalesByPeriodSchema = z.object({
-  startDate: z.string(),
-  endDate: z.string()
+  startDate: z.string().max(30),
+  endDate: z.string().max(30)
 });
 
 export type MonthlySalesData = {

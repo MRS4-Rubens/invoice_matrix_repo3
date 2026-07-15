@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth/server';
 import { db } from '@/lib/db/client';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { exportLimiter, checkRateLimit } from '@/lib/rate-limit/upstash';
 import { getExportData } from '@/lib/actions/reports/get-export-data';
 import { buildSalesRegisterWorkbook } from '@/lib/excel/build-sales-register';
 
@@ -19,6 +20,14 @@ export async function GET(request: NextRequest) {
     return new Response('Unauthorized', { status: 401 });
   }
   const appUser = userRows[0];
+
+  const { allowed, retryAfterSeconds } = await checkRateLimit(exportLimiter, `export:${appUser.id}`);
+  if (!allowed) {
+    return new Response(`Too Many Requests. Retry after ${retryAfterSeconds} seconds.`, {
+      status: 429,
+      headers: { 'Retry-After': retryAfterSeconds.toString() }
+    });
+  }
 
   // 2. Parse search params
   const { searchParams } = new URL(request.url);

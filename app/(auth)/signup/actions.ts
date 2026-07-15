@@ -6,6 +6,8 @@ import { users } from '@/lib/db/schema'
 import { redirect } from 'next/navigation'
 
 import { ensureAppUser } from '@/lib/auth/ensure-app-user'
+import { headers } from 'next/headers'
+import { authLimiter, checkRateLimit, getClientIp } from '@/lib/rate-limit/upstash'
 
 export async function signupAction(prevState: any, formData: FormData) {
   const name = formData.get('ownerName') as string;
@@ -19,6 +21,12 @@ export async function signupAction(prevState: any, formData: FormData) {
   
   if (password !== confirmPassword) {
     return { error: 'Passwords do not match.' };
+  }
+
+  const ip = getClientIp(await headers());
+  const { allowed } = await checkRateLimit(authLimiter, `auth:${ip}`);
+  if (!allowed) {
+    return { error: 'Too many attempts. Please wait a moment and try again.' };
   }
   
   try {

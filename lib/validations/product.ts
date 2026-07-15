@@ -6,6 +6,7 @@ export const productSchema = z.object({
   description: z.string().max(1000, 'Description must be 1000 characters or less').optional().or(z.literal('')),
   hsn_sac_code: z.string()
     .trim()
+    .max(8)
     .regex(/^(\d{4}|\d{6}|\d{8})$/, 'Enter a valid 4, 6, or 8-digit HSN/SAC code.'),
   unit_of_measurement: z.enum(UNIT_OF_MEASUREMENT_OPTIONS, {
     message: 'Please select a valid unit of measurement.',

@@ -4,6 +4,9 @@ import { ActionError } from './errors';
 import { logError } from './logger';
 import { getCurrentAppUser } from '@/lib/auth/session';
 import { users } from '@/lib/db/schema';
+import { headers } from 'next/headers';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit/upstash';
+import type { Ratelimit } from '@upstash/ratelimit';
 
 type AppUser = typeof users.$inferSelect;
 
@@ -58,17 +61,28 @@ async function runValidatedHandler<TSchema extends z.ZodTypeAny, TOutput, TConte
 export function createAction<TSchema extends z.ZodTypeAny, TOutput>(
   schema: TSchema,
   handler: (parsedData: z.infer<TSchema>, context: undefined) => Promise<TOutput>,
-  scopeName: string
+  scopeName: string,
+  options?: { rateLimit?: { limiter: Ratelimit; keyPrefix: string } }
 ) {
   return async (rawInput: unknown): Promise<ActionResult<TOutput>> => {
-    return runValidatedHandler(schema, rawInput, scopeName, async () => undefined, handler);
+    return runValidatedHandler(schema, rawInput, scopeName, async () => {
+      if (options?.rateLimit) {
+        const ip = getClientIp(await headers());
+        const { allowed, retryAfterSeconds } = await checkRateLimit(options.rateLimit.limiter, `${options.rateLimit.keyPrefix}:${ip}`);
+        if (!allowed) {
+          throw new ActionError(`Too many requests. Please try again in ${retryAfterSeconds} seconds.`, { code: 'RATE_LIMITED' });
+        }
+      }
+      return undefined;
+    }, handler);
   };
 }
 
 export function createAuthenticatedAction<TSchema extends z.ZodTypeAny, TOutput>(
   schema: TSchema,
   handler: (parsedData: z.infer<TSchema>, context: { appUser: AppUser }) => Promise<TOutput>,
-  scopeName: string
+  scopeName: string,
+  options?: { rateLimit?: { limiter: Ratelimit; keyPrefix: string } }
 ) {
   return async (rawInput: unknown): Promise<ActionResult<TOutput>> => {
     return runValidatedHandler(schema, rawInput, scopeName, async () => {
@@ -76,6 +90,14 @@ export function createAuthenticatedAction<TSchema extends z.ZodTypeAny, TOutput>
       if (!appUser) {
         throw new ActionError('We could not find your account details. Please try logging out and back in.', { code: 'NO_APP_USER' });
       }
+
+      if (options?.rateLimit) {
+        const { allowed, retryAfterSeconds } = await checkRateLimit(options.rateLimit.limiter, `${options.rateLimit.keyPrefix}:${appUser.id}`);
+        if (!allowed) {
+          throw new ActionError(`Too many requests. Please try again in ${retryAfterSeconds} seconds.`, { code: 'RATE_LIMITED' });
+        }
+      }
+
       return { appUser };
     }, handler);
   };

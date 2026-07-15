@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth/server'
 import { redirect } from 'next/navigation'
 
 import { ensureAppUser } from '@/lib/auth/ensure-app-user'
+import { headers } from 'next/headers'
+import { authLimiter, checkRateLimit, getClientIp } from '@/lib/rate-limit/upstash'
 
 export async function loginAction(prevState: any, formData: FormData) {
   const email = formData.get('email') as string;
@@ -11,6 +13,12 @@ export async function loginAction(prevState: any, formData: FormData) {
   
   if (!email || !password) {
     return { error: 'Please enter both email and password.' };
+  }
+
+  const ip = getClientIp(await headers());
+  const { allowed } = await checkRateLimit(authLimiter, `auth:${ip}`);
+  if (!allowed) {
+    return { error: 'Too many attempts. Please wait a moment and try again.' };
   }
   
   try {

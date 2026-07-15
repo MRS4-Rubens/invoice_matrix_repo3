@@ -8,7 +8,7 @@ import { eq, and, ilike, or, asc } from 'drizzle-orm';
 import { z } from 'zod';
 
 const listProductsSchema = z.object({
-  search: z.string().optional(),
+  search: z.string().max(100).optional(),
   includeInactive: z.boolean().optional().default(false)
 });
 

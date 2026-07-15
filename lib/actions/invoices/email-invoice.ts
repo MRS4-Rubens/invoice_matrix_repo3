@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
 import { ActionError } from '@/lib/actions/_shared/errors';
+import { sensitiveActionLimiter } from '@/lib/rate-limit/upstash';
 import { logError } from '@/lib/actions/_shared/logger';
 import { db } from '@/lib/db/client';
 import { invoices, businesses, customers } from '@/lib/db/schema';
@@ -138,5 +139,6 @@ export const emailInvoice = createAuthenticatedAction(
     
     return { success: true };
   },
-  'email-invoice'
+  'email-invoice',
+  { rateLimit: { limiter: sensitiveActionLimiter, keyPrefix: 'email-invoice' } }
 );

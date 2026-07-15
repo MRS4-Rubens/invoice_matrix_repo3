@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
 import { ActionError } from '@/lib/actions/_shared/errors';
+import { sensitiveActionLimiter } from '@/lib/rate-limit/upstash';
 import { logError } from '@/lib/actions/_shared/logger';
 import { db } from '@/lib/db/client';
 import { invoices, businesses, customers, payments } from '@/lib/db/schema';
@@ -149,5 +150,6 @@ export const sendPaymentReminder = createAuthenticatedAction(
     
     return { success: true };
   },
-  'send-payment-reminder'
+  'send-payment-reminder',
+  { rateLimit: { limiter: sensitiveActionLimiter, keyPrefix: 'email-invoice' } }
 );

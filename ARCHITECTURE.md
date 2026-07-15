@@ -106,3 +106,19 @@ Archival of finalized invoices happens automatically upon finalization using a b
 ## Why this structure
 
 Every folder above maps to exactly one future phase in `BillMatrix_Backend_Roadmap_v1.md`. Nothing here is speculative — each folder exists because a specific, already-planned phase needs it. This means the project never needs a restructuring pass later: as each phase is implemented, its code goes into a folder that was already waiting for it.
+
+## Security Conventions (established Phase 17)
+
+Rate limiting uses Upstash Redis and provides three core limiters:
+- **`authLimiter`**: 5 req/min, per IP (for login/signup endpoints without a session yet).
+- **`sensitiveActionLimiter`**: 20 req/min, per user ID (for critical actions like finalizing, sending email, or recording payments).
+- **`exportLimiter`**: 10 req/5min, per user ID or IP (for expensive PDF renders or Excel exports).
+
+**Applying rate limits:**
+- **Server Actions**: Opt-in incrementally via the `options.rateLimit` property in `createAction` and `createAuthenticatedAction` without requiring changes to the bulk of generic database wrappers.
+  ```typescript
+  export const myAction = createAuthenticatedAction(schema, async (input, context) => {
+    // ...
+  }, 'my-action', { rateLimit: { limiter: sensitiveActionLimiter, keyPrefix: 'my-action' } });
+  ```
+- **Route Handlers**: New Route Handlers added in the future need their own direct rate-limit checks (since the `createAction` wrapper does not govern Route Handlers). Check it using `checkRateLimit` alongside token verification or session extraction.

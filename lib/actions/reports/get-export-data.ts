@@ -7,9 +7,9 @@ import { eq, and, between, inArray, asc } from 'drizzle-orm';
 import { z } from 'zod';
 
 const getExportDataSchema = z.object({
-  startDate: z.string(),
-  endDate: z.string(),
-  label: z.string()
+  startDate: z.string().max(30),
+  endDate: z.string().max(30),
+  label: z.string().max(100)
 });
 
 export interface ExportInvoice {
