@@ -47,3 +47,22 @@ export async function getSignedDownloadUrl(key: string, expirySeconds: number = 
 
   return await getSignedUrl(s3Client, command, { expiresIn: expirySeconds });
 }
+
+/**
+ * Fetches an object from the configured iDrive e2 bucket and returns it as a Buffer.
+ */
+export async function getFileBuffer(key: string): Promise<Buffer> {
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+  });
+
+  const response = await s3Client.send(command);
+  
+  if (!response.Body) {
+    throw new Error('No body returned from S3 GetObjectCommand');
+  }
+
+  const byteArray = await response.Body.transformToByteArray();
+  return Buffer.from(byteArray);
+}

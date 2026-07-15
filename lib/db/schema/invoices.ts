@@ -39,6 +39,8 @@ export const invoices = pgTable('invoices', {
   archival_status: archivalStatusEnum('archival_status').notNull().default('pending'),
   archival_attempts: integer('archival_attempts').notNull().default(0),
   archived_at: timestamp('archived_at', { withTimezone: true }),
+  emailed_at: timestamp('emailed_at', { withTimezone: true }),
+  email_send_count: integer('email_send_count').notNull().default(0),
   finalized_at: timestamp('finalized_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()

@@ -1,10 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Printer, Download } from 'lucide-react'
+import { ArrowLeft, Printer, Download, Mail, BellRing } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { paiseToRupees } from '@/lib/money'
+import { emailInvoice } from '@/lib/actions/invoices/email-invoice'
+import { sendPaymentReminder } from '@/lib/actions/invoices/send-payment-reminder'
 import { getArchivedPdfUrl } from '@/lib/actions/invoices/get-archived-pdf-url'
 import { getDisplayInvoiceStatus, getDisplayStatusLabel } from '@/lib/invoices/status'
 import { PaymentSection } from './payment-section'
@@ -60,6 +62,8 @@ export function InvoiceDetail({ invoice, payments = [] }: { invoice: any, paymen
   const [printSize, setPrintSize] = useState<'A4' | 'A5'>('A4')
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
   const isIntra = invoice.total_igst_paise === 0;
   const supplyLabel = isIntra ? 'Intra-State' : 'Inter-State'
@@ -76,6 +80,31 @@ export function InvoiceDetail({ invoice, payments = [] }: { invoice: any, paymen
     setIsDownloading(false)
   }
 
+  function handleEmailInvoice() {
+    if (!window.confirm('Send this invoice to the customer?')) return;
+    setActionMessage(null);
+    startTransition(async () => {
+      const res = await emailInvoice({ invoiceId: invoice.id });
+      if (res.success) {
+        setActionMessage({ text: 'Invoice emailed successfully.', type: 'success' });
+      } else {
+        setActionMessage({ text: res.error.message, type: 'error' });
+      }
+    });
+  }
+
+  function handleSendReminder() {
+    if (!window.confirm('Send a payment reminder to the customer?')) return;
+    setActionMessage(null);
+    startTransition(async () => {
+      const res = await sendPaymentReminder({ invoiceId: invoice.id });
+      if (res.success) {
+        setActionMessage({ text: 'Payment reminder sent.', type: 'success' });
+      } else {
+        setActionMessage({ text: res.error.message, type: 'error' });
+      }
+    });
+  }
 
   return (
     <>
@@ -119,17 +148,55 @@ export function InvoiceDetail({ invoice, payments = [] }: { invoice: any, paymen
               <p className="text-xs text-muted-foreground">{invoice.invoice_number}</p>
               {invoice.archival_status === 'pending' && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border">Archival copy pending</span>}
               {invoice.archival_status === 'failed' && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border">Archival copy will be retried automatically</span>}
+              {invoice.emailed_at && (
+                <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-200">
+                  Last emailed: {new Date(invoice.emailed_at).toLocaleDateString('en-IN')} 
+                  {invoice.email_send_count > 1 ? ` (sent ${invoice.email_send_count} times)` : ''}
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {downloadError && <span className="text-xs text-destructive">{downloadError}</span>}
-          {invoice.archival_status === 'archived' && (
-            <Button type="button" size="sm" variant="outline" onClick={handleDownloadArchived} disabled={isDownloading}>
-              <Download className="size-4" /> {isDownloading ? 'Loading...' : 'View Archived Copy'}
-            </Button>
+        <div className="flex flex-col items-end gap-2">
+          {actionMessage && (
+            <span className={cn('text-xs font-medium', actionMessage.type === 'error' ? 'text-destructive' : 'text-green-600')}>
+              {actionMessage.text}
+            </span>
           )}
+          {downloadError && <span className="text-xs text-destructive">{downloadError}</span>}
+          <div className="flex items-center gap-2">
+            {invoice.lifecycle_status === 'finalized' && invoice.archival_status === 'archived' && (
+              <>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleEmailInvoice} 
+                  disabled={isPending || !invoice.customer_email}
+                  title={!invoice.customer_email ? "Customer has no email address" : "Email invoice to customer"}
+                >
+                  <Mail className="size-4" /> {isPending ? 'Sending...' : 'Email Invoice'}
+                </Button>
+                {getDisplayInvoiceStatus(invoice) === 'overdue' && (
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleSendReminder} 
+                    disabled={isPending || !invoice.customer_email}
+                    title={!invoice.customer_email ? "Customer has no email address" : "Send payment reminder"}
+                  >
+                    <BellRing className="size-4" /> {isPending ? 'Sending...' : 'Send Reminder'}
+                  </Button>
+                )}
+              </>
+            )}
+            {invoice.archival_status === 'archived' && (
+              <Button type="button" size="sm" variant="outline" onClick={handleDownloadArchived} disabled={isDownloading}>
+                <Download className="size-4" /> {isDownloading ? 'Loading...' : 'View Archived Copy'}
+              </Button>
+            )}
           <div className="flex overflow-hidden rounded-lg border border-border text-xs ml-2">
             {(['A4', 'A5'] as const).map((s) => (
               <button key={s} type="button" onClick={() => setPrintSize(s)} className={printSize === s ? 'bg-primary px-3 py-1.5 font-medium text-primary-foreground' : 'bg-background px-3 py-1.5 text-muted-foreground transition-colors hover:bg-accent first:border-r first:border-border'}>
@@ -140,6 +207,7 @@ export function InvoiceDetail({ invoice, payments = [] }: { invoice: any, paymen
           <Button type="button" size="sm" onClick={() => window.print()}>
             <Printer className="size-4" /> Print {printSize}
           </Button>
+          </div>
         </div>
       </div>
 

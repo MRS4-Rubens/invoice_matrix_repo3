@@ -3,7 +3,7 @@ import { db } from '@/lib/db/client';
 import { invoices, invoiceLineItems, businesses } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyArchivalToken } from '@/lib/security/archival-token';
-import { renderToStaticMarkup } from 'react-dom/server';
+const { renderToStaticMarkup } = require('react-dom/server');
 import { InvoicePrintView } from '@/components/app/invoices/invoice-print-view';
 import fs from 'fs';
 import path from 'path';

@@ -87,7 +87,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   return (
     <>
       <div className="print:hidden">
-        <InvoiceDetail invoice={{...invoice, business_name: business.legal_name}} payments={payments} />
+        <InvoiceDetail invoice={{...invoice, business_name: business.legal_name, customer_email: invoice.customer?.email}} payments={payments} />
       </div>
       <div className="hidden print:block">
         <InvoicePrintView 
