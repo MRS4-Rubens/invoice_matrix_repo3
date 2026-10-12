@@ -33,6 +33,7 @@ export function ProductActions({ product }: { product: typeof products.$inferSel
       variant={product.is_active ? 'destructive' : 'outline'}
       onClick={handleToggleActive}
       disabled={isPending}
+      className="h-9 px-3.5 text-sm font-bold rounded-lg shadow-xs hover:shadow-sm cursor-pointer transition-all hover:-translate-y-px active:translate-y-px"
     >
       {isPending ? 'Updating...' : product.is_active ? 'Deactivate Product' : 'Reactivate Product'}
     </Button>

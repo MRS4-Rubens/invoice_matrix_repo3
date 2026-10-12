@@ -1,84 +1,60 @@
-'use client'
-
-import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
-import { PageContainer } from '@/components/page-container'
-import { cn } from '@/lib/utils'
-
-const faqs = [
-  {
-    question: 'Is Bill Matrix fully GST-compliant?',
-    answer:
-      'Yes. Bill Matrix automatically calculates CGST + SGST for intra-state transactions and IGST for inter-state, based on the registered state of your business and your customer\'s GSTIN.',
-  },
-  {
-    question: 'Can I export data for ITR filing?',
-    answer:
-      'Yes. The Excel export includes Invoice No, Date, Buyer name, GSTIN, Taxable Amount, CGST, SGST, IGST, Total GST, and Grand Total — exactly the columns your CA needs.',
-  },
-  {
-    question: 'Where is my data stored?',
-    answer:
-      'All invoice PDFs and documents are stored on iDrive e2 object storage with signed URLs. Your data is retained for 6+ years as required by GST regulations.',
-  },
-  {
-    question: 'Can I customise the invoice number format?',
-    answer:
-      'Yes. You can set a custom prefix (e.g. BM, FIRM, INV) and manually override any invoice number. The counter resets daily by default.',
-  },
-  {
-    question: 'Can I manage multiple businesses?',
-    answer:
-      'Multi-business support is available on the Enterprise plan. Each business has its own GSTIN, invoice series, customers, and reports.',
-  },
-  {
-    question: 'Is there a free trial for paid plans?',
-    answer:
-      'The Professional plan comes with a 14-day free trial — no credit card required. You can upgrade, downgrade, or cancel anytime.',
-  },
-]
-
 export function FaqSection() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null)
-
   return (
-    <section className="py-20">
-      <PageContainer>
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-foreground">
-            Frequently asked questions
-          </h2>
-        </div>
+    <section id="faq" className="py-24 px-6 max-w-4xl mx-auto border-t border-zinc-100">
+      <div className="text-center mb-16">
+        <span className="reveal in inline-block text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-4 py-1.5 mb-5 tracking-wide uppercase">
+          <svg className="w-4 h-4 inline mr-1.5">
+            <use href="#question" />
+          </svg>{' '}
+          FAQ
+        </span>
+        <h2 className="reveal in text-4xl md:text-5xl font-bold heading">Frequently asked questions</h2>
+        <p className="reveal in text-zinc-500 mt-4 text-lg">Got questions? We've got answers.</p>
+      </div>
 
-        <div className="mx-auto mt-10 max-w-2xl">
-          {faqs.map((faq, index) => (
-            <div key={index} className="border-b border-border">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between py-4 text-left"
-                onClick={() =>
-                  setOpenIndex(openIndex === index ? null : index)
-                }
-              >
-                <span className="text-sm font-medium text-foreground">
-                  {faq.question}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    'ml-4 size-4 shrink-0 text-muted-foreground transition-transform duration-200',
-                    openIndex === index && 'rotate-180',
-                  )}
-                />
-              </button>
-              {openIndex === index && (
-                <p className="pb-4 text-sm leading-relaxed text-muted-foreground">
-                  {faq.answer}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      </PageContainer>
+      <div className="reveal in space-y-4">
+        <details className="group bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-all [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex justify-between items-center font-semibold text-zinc-800 cursor-pointer list-none text-base heading">
+            How long does onboarding take?
+            <span className="text-zinc-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <p className="text-zinc-500 text-sm mt-3 leading-relaxed">
+            Onboarding takes less than 5 minutes. As soon as you enter your GSTIN, we verify and fetch your business
+            registration data, letting you start invoicing immediately.
+          </p>
+        </details>
+        <details className="group bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-all [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex justify-between items-center font-semibold text-zinc-800 cursor-pointer list-none text-base heading">
+            Can I export data for my CA?
+            <span className="text-zinc-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <p className="text-zinc-500 text-sm mt-3 leading-relaxed">
+            Yes. Our auto-export tool compiles all sales invoices, client registries, and tax components into standard
+            ITR-compliant Excel spreadsheets that CAs can consume instantly.
+          </p>
+        </details>
+        <details className="group bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-all [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex justify-between items-center font-semibold text-zinc-800 cursor-pointer list-none text-base heading">
+            Is my business data secure?
+            <span className="text-zinc-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <p className="text-zinc-500 text-sm mt-3 leading-relaxed">
+            Absolutely. All business communications and transactions are protected by 256-bit SSL encryption. We also
+            maintain a strict residency policy, keeping all records securely stored within servers physically located in
+            India.
+          </p>
+        </details>
+        <details className="group bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 transition-all [&_summary::-webkit-details-marker]:hidden">
+          <summary className="flex justify-between items-center font-semibold text-zinc-800 cursor-pointer list-none text-base heading">
+            Is WhatsApp sharing free?
+            <span className="text-zinc-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <p className="text-zinc-500 text-sm mt-3 leading-relaxed">
+            WhatsApp invoicing is included in our Growth and Enterprise plans. There are no extra per-message or
+            per-invoice credits to purchase.
+          </p>
+        </details>
+      </div>
     </section>
   )
 }

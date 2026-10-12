@@ -1,15 +1,19 @@
 import type { Metadata } from 'next'
 import { ReportsClient } from './client'
-import { getCurrentMonthRange, getCurrentFinancialYearRange } from '@/lib/reports/period'
+import { getCurrentMonthRange, getCurrentFinancialYearRange, getPreviousFinancialYearRange, getMonthRange } from '@/lib/reports/period'
 import { getIstDateParts } from '@/lib/invoices/ist-date'
 import { getSalesByPeriod } from '@/lib/actions/reports/get-sales-by-period'
 import { getTopCustomers } from '@/lib/actions/reports/get-top-customers'
 import { getTopProducts } from '@/lib/actions/reports/get-top-products'
-import { getMonthRange } from '@/lib/reports/period'
+import { getCurrentAppUser } from '@/lib/auth/session'
+import { db } from '@/lib/db/client'
+import { businesses } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import { canExportStatutoryReport } from '@/lib/subscriptions/entitlements'
 
 export const metadata: Metadata = { title: 'Reports' }
 
-export default async function ReportsPage(props: { searchParams: Promise<{ period?: string }> }) {
+export default async function ReportsPage(props: { searchParams: Promise<{ period?: string; startDate?: string; endDate?: string }> }) {
   const searchParams = await props.searchParams
   const period = searchParams.period || 'this_month'
   
@@ -17,7 +21,13 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
   let endDate = ''
   let periodLabel = ''
   
-  if (period === 'last_month') {
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+
+  if (period === 'custom' && searchParams.startDate && searchParams.endDate && dateRegex.test(searchParams.startDate) && dateRegex.test(searchParams.endDate)) {
+    startDate = searchParams.startDate <= searchParams.endDate ? searchParams.startDate : searchParams.endDate
+    endDate = searchParams.startDate <= searchParams.endDate ? searchParams.endDate : searchParams.startDate
+    periodLabel = 'Custom'
+  } else if (period === 'last_month') {
     const d = new Date()
     // Need to use IST date parts so it's consistent
     const parts = getIstDateParts(d)
@@ -36,7 +46,13 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
     startDate = range.startDate
     endDate = range.endDate
     periodLabel = range.label
+  } else if (period === 'prev_fy') {
+    const range = getPreviousFinancialYearRange()
+    startDate = range.startDate
+    endDate = range.endDate
+    periodLabel = range.label
   } else {
+
     // Default: this_month
     const range = getCurrentMonthRange()
     startDate = range.startDate
@@ -46,8 +62,8 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
 
   const [salesDataRes, topCustomersRes, topProductsRes] = await Promise.all([
     getSalesByPeriod({ startDate, endDate }),
-    getTopCustomers({ startDate, endDate, limit: 10 }),
-    getTopProducts({ startDate, endDate, limit: 10 })
+    getTopCustomers({ startDate, endDate, limit: 3 }),
+    getTopProducts({ startDate, endDate, limit: 3 })
   ])
   
   if (!salesDataRes.success || !topCustomersRes.success || !topProductsRes.success) {
@@ -58,6 +74,15 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
   const topCustomers = topCustomersRes.data
   const topProducts = topProductsRes.data
 
+  const user = await getCurrentAppUser()
+  let canExport = false
+  if (user?.business_id) {
+    const [b] = await db.select().from(businesses).where(eq(businesses.id, user.business_id))
+    if (b) {
+      canExport = canExportStatutoryReport(b).allowed
+    }
+  }
+
   return (
     <ReportsClient 
       salesData={salesData} 
@@ -67,6 +92,7 @@ export default async function ReportsPage(props: { searchParams: Promise<{ perio
       periodLabel={periodLabel}
       startDate={startDate}
       endDate={endDate}
+      canExport={canExport}
     />
   )
 }

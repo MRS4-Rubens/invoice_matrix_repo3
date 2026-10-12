@@ -1,43 +1,99 @@
-import type { Metadata } from 'next'
-import { PageContainer } from '@/components/page-container'
+import type { Metadata } from 'next';
+
+import { AdminConsole } from './admin-console';
+import { getAdminDashboardStats } from '@/lib/actions/subscriptions/get-admin-dashboard-stats';
+import { getPendingRequests } from '@/lib/actions/subscriptions/get-pending-requests';
+import { getAllBusinesses } from '@/lib/actions/subscriptions/get-all-businesses';
+import { getAllUsers } from '@/lib/actions/subscriptions/get-all-users';
+import { getSignedDownloadUrl } from '@/lib/storage/idrive';
 
 export const metadata: Metadata = {
-  title: 'Platform Admin',
-}
+  title: 'Platform Admin Console',
+};
 
-export default function AdminHomePage() {
+export const dynamic = 'force-dynamic';
+
+export default async function AdminPage() {
+  // 1. Trigger Server Actions in parallel
+  const [statsRes, pendingRes, businessesRes, usersRes] = await Promise.all([
+    getAdminDashboardStats({}),
+    getPendingRequests({}),
+    getAllBusinesses({}),
+    getAllUsers({}),
+  ]);
+
+  // 2. Error handling if any action fails
+  if (!statsRes.success || !pendingRes.success || !businessesRes.success || !usersRes.success) {
+    return (
+      <div className="w-full">
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-6 text-rose-700 dark:text-rose-400">
+          <h2 className="text-lg font-bold">Failed to load administrative console</h2>
+          <p className="mt-2 text-sm leading-relaxed">
+            Please make sure you have appropriate admin privileges configured in process.env.PLATFORM_ADMIN_EMAILS.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = statsRes.data;
+  const pendingRaw = pendingRes.data;
+  const businessesRaw = businessesRes.data;
+  const usersRaw = usersRes.data;
+
+  // 3. Resolve S3 signed URLs for payment screenshot images server-side (7 days validity)
+  const pendingRequests = await Promise.all(
+    pendingRaw.map(async (req) => {
+      let screenshotUrl = null;
+      if (req.screenshotStorageKey) {
+        try {
+          screenshotUrl = await getSignedDownloadUrl(req.screenshotStorageKey, 604800);
+        } catch (e) {
+          console.error('[AdminPage] Failed to generate signed URL:', e);
+        }
+      }
+      return {
+        ...req,
+        screenshotUrl,
+        createdAt: req.createdAt.toISOString(),
+      };
+    })
+  );
+
+  // 4. Serialize date columns to ISO strings
+  const businessesProp = businessesRaw.map((b) => ({
+    ...b,
+    subscriptionEndsAt: b.subscriptionEndsAt ? b.subscriptionEndsAt.toISOString() : null,
+    createdAt: b.createdAt.toISOString(),
+  }));
+
+  const usersProp = usersRaw.map((u) => ({
+    ...u,
+    createdAt: u.createdAt.toISOString(),
+  }));
+
+  // 5. Pass down payee UPI and bank details from environment variables
+  const upiConfig = {
+    upiId: process.env.ADMIN_UPI_ID || 'admin@okaxis',
+    upiName: process.env.ADMIN_UPI_NAME || 'Bill Matrix Billing',
+    bankName: process.env.ADMIN_BANK_NAME || 'State Bank of India',
+    accName: process.env.ADMIN_BANK_ACC_NAME || 'Bill Matrix Admin',
+    accNo: process.env.ADMIN_BANK_ACC_NO || '12345678901',
+    ifsc: process.env.ADMIN_BANK_IFSC || 'SBIN0001234',
+  };
+
+  const adminEmailsEnv = process.env.PLATFORM_ADMIN_EMAILS || '';
+
   return (
-    <PageContainer>
-      <div className="flex flex-col gap-1">
-        <span className="inline-flex w-fit items-center rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-          Platform Admin
-        </span>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">
-          Admin console
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Separate platform-administration area. This is a placeholder for
-          managing businesses, plans and platform settings.
-        </p>
-      </div>
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        {[
-          { label: 'Businesses', value: '0' },
-          { label: 'Active plans', value: '0' },
-          { label: 'Support tickets', value: '0' },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-border bg-card p-5"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-              {stat.value}
-            </p>
-          </div>
-        ))}
-      </div>
-    </PageContainer>
-  )
+    <div className="w-full pb-12">
+      <AdminConsole
+        stats={stats}
+        pendingRequests={pendingRequests}
+        businesses={businessesProp}
+        users={usersProp}
+        upiConfig={upiConfig}
+        adminEmailAllowlist={adminEmailsEnv}
+      />
+    </div>
+  );
 }

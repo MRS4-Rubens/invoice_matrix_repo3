@@ -4,23 +4,62 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { businessProfileSchema, BusinessProfileInput } from '@/lib/validations/business';
 import { saveBusinessProfile } from '@/lib/actions/business/save-business-profile';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { INDIAN_GST_STATES } from '@/lib/gst/indian-states';
 import { cn } from '@/lib/utils';
-import { Check, AlertCircle, Info } from 'lucide-react';
-import { validateInvoiceNumberFormat, resolveInvoiceNumber } from '@/lib/invoices/number-format';
+import { 
+  Check, 
+  AlertCircle, 
+  Building2, 
+  Store, 
+  FileSpreadsheet, 
+  CreditCard, 
+  ShieldCheck, 
+  Phone, 
+  PhoneCall, 
+  Mail, 
+  Briefcase, 
+  MapPin, 
+  Navigation, 
+  Globe, 
+  Hash, 
+  Landmark, 
+  UserCheck, 
+  QrCode, 
+  ReceiptText,
+  ArrowRight,
+  Calendar,
+  Sparkles
+} from 'lucide-react';
+import { businesses, financialYears } from '@/lib/db/schema';
+import { ProfileSpotlightTour } from './profile-spotlight-tour';
 
-const inputClass =
-  'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors'
-const labelClass = 'mb-1.5 block text-sm font-medium text-foreground'
-const sectionClass = 'border-b border-border pb-8 mb-8 last:border-0 last:mb-0 last:pb-0'
-const errorClass = 'mt-1.5 text-xs text-destructive'
+const baseInputClass =
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 h-9 text-sm text-slate-900 font-medium placeholder:text-slate-400 hover:border-slate-400 focus:outline-none focus:ring-2 shadow-2xs transition-all'
+const inputGreenClass = `${baseInputClass} focus:ring-emerald-800/15 focus:border-emerald-800`
+const inputAmberClass = `${baseInputClass} focus:ring-amber-800/15 focus:border-amber-800`
+const inputRoseClass = `${baseInputClass} focus:ring-rose-900/15 focus:border-rose-900`
 
-export function BusinessProfileForm({ business, currentFy }: { business: any, currentFy: any }) {
+const labelClass = 'mb-1 flex items-center gap-1.5 text-sm font-semibold text-slate-700'
+const sectionClass = 'border-b border-border pb-4 mb-4 sm:pb-4.5 sm:mb-4.5 last:border-0 last:mb-0 last:pb-0'
+const errorClass = 'mt-1 text-xs font-semibold text-destructive'
+
+export function BusinessProfileForm({
+  business,
+  currentFy,
+  onSwitchTab,
+}: {
+  business: typeof businesses.$inferSelect | null;
+  currentFy: typeof financialYears.$inferSelect | null;
+  onSwitchTab?: (tab: string) => void;
+}) {
+  const isNewBusiness = !business || !business.id;
   const [success, setSuccess] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [isTourOpen, setIsTourOpen] = useState(isNewBusiness);
+  const [showCelebration, setShowCelebration] = useState(false);
   
-  const { register, handleSubmit, formState: { errors, isSubmitting }, setError, watch } = useForm<BusinessProfileInput>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setError, watch, setValue } = useForm<BusinessProfileInput>({
     resolver: zodResolver(
       // @hookform/resolvers (v5.4.0) relies on a slightly older Zod v4 draft signature
       // where _zod.version.minor was 3. Zod v4.4.3 bumped it to 4, breaking the TS structural match.
@@ -39,15 +78,13 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       state_code: business.state_code,
       pincode: business.pincode,
       phone: business.phone || '',
+      alternate_phone: business.alternate_phone || '',
       email: business.email || '',
+      nature_of_business: business.nature_of_business || '',
       bank_account_name: business.bank_account_name || '',
       bank_account_number: business.bank_account_number || '',
       bank_ifsc: business.bank_ifsc || '',
       bank_name: business.bank_name || '',
-      invoice_number_format: business.invoice_number_format,
-      credit_note_number_prefix: business.credit_note_number_prefix,
-      invoice_terms: business.invoice_terms || '',
-      payment_due_days: business.payment_due_days ?? 30,
     } : {
       legal_name: '',
       trade_name: '',
@@ -60,17 +97,36 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
       state_code: '',
       pincode: '',
       phone: '',
+      alternate_phone: '',
       email: '',
+      nature_of_business: '',
       bank_account_name: '',
       bank_account_number: '',
       bank_ifsc: '',
       bank_name: '',
-      invoice_number_format: 'INV/{FY}/{SEQ:4}',
-      credit_note_number_prefix: 'CN',
-      invoice_terms: '1. Goods once sold will not be taken back.\n2. Payment to be made within 30 days from the date of invoice.\n3. Interest @ 24% per annum will be charged on overdue invoices until payment is received.',
-      payment_due_days: 30,
     }
   });
+
+  // Smart Auto-fill: When GSTIN is typed, automatically extract PAN and pre-fill State code
+  const watchedGstin = watch('gstin');
+  useEffect(() => {
+    if (!watchedGstin) return;
+    const clean = watchedGstin.trim().toUpperCase();
+
+    // 1. Auto extract State code (first 2 digits)
+    if (clean.length >= 2) {
+      const stateCode = clean.slice(0, 2);
+      if (INDIAN_GST_STATES.some((s) => s.code === stateCode)) {
+        setValue('state_code', stateCode, { shouldValidate: true });
+      }
+    }
+
+    // 2. Auto extract PAN (10 chars: chars 2 to 12)
+    if (clean.length >= 12) {
+      const extractedPan = clean.slice(2, 12);
+      setValue('pan', extractedPan, { shouldValidate: true });
+    }
+  }, [watchedGstin, setValue]);
 
   const onSubmit = async (data: BusinessProfileInput) => {
     setSuccess(false);
@@ -79,12 +135,17 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
     
     if (result.success) {
       setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      if (isNewBusiness) {
+        // Trigger celebratory confetti modal and automatic redirect to dashboard
+        setShowCelebration(true);
+      } else {
+        setTimeout(() => setSuccess(false), 3000);
+      }
     } else {
       if (result.error.fieldErrors) {
         Object.entries(result.error.fieldErrors).forEach(([field, messages]) => {
           if (messages && messages.length > 0) {
-            setError(field as any, { message: messages[0] });
+            setError(field as keyof BusinessProfileInput, { message: messages[0] });
           }
         });
       } else {
@@ -93,220 +154,356 @@ export function BusinessProfileForm({ business, currentFy }: { business: any, cu
     }
   };
 
-  const invoiceFormat = watch('invoice_number_format');
-  let formatPreview = null;
-  let formatError = null;
-  if (invoiceFormat) {
-    const validState = validateInvoiceNumberFormat(invoiceFormat);
-    if (!validState.valid) {
-      formatError = validState.error;
-    } else {
-      try {
-        const generated = resolveInvoiceNumber(invoiceFormat, {
-          invoiceDate: new Date(),
-          fyLabel: currentFy?.label || '2026-27',
-          sequenceValue: 1
-        });
-        formatPreview = `Preview: ${generated} (${generated.length}/16 characters)`;
-      } catch (e: any) {
-        formatError = e.message;
-      }
-    }
-  }
-
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <h2 className="mb-1 text-lg font-semibold text-foreground">Business Profile</h2>
-      <p className="mb-6 text-sm text-muted-foreground">Manage your business information and tax details.</p>
+    <div className="rounded-xl border border-border bg-card px-5 py-4 sm:px-6 sm:py-4.5 shadow-xs">
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <div className="flex items-center gap-2">
+          <Building2 className="size-5 text-slate-800 shrink-0" />
+          <h2 className="text-xl font-bold font-heading text-slate-900 uppercase">Business Profile</h2>
+        </div>
+        
+        {/* Guided Tour Trigger Button */}
+        <button
+          type="button"
+          onClick={() => setIsTourOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors cursor-pointer shadow-2xs"
+          title="Launch interactive setup tour"
+        >
+          <Sparkles className="size-3.5" />
+          <span>{isNewBusiness ? 'Guided Setup Tour' : 'Replay Tour'}</span>
+        </button>
+      </div>
+      <p className="mb-3.5 text-sm sm:text-base text-muted-foreground font-medium">Manage your business information and tax details.</p>
 
       {globalError && (
-        <div className="mb-6 rounded-lg bg-destructive/10 p-4 text-sm text-destructive flex items-center gap-2">
+        <div className="mb-3.5 rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive flex items-center gap-2">
           <AlertCircle className="size-4" />
           {globalError}
         </div>
       )}
 
-      {currentFy && (
-        <div className="mb-6 rounded-lg bg-primary/5 p-4 border border-primary/10">
-          <p className="text-sm font-medium text-foreground">Current Financial Year: {currentFy.label}</p>
+      {currentFy ? (
+        <div className="mb-3.5 rounded-lg bg-emerald-50/60 px-3.5 py-2.5 border border-emerald-200/80 flex items-center gap-2.5">
+          <Calendar className="size-4 text-emerald-800 shrink-0" />
+          <p className="text-sm sm:text-base font-semibold text-emerald-950">Current Financial Year: {currentFy.label}</p>
         </div>
-      )}
+      ) : isNewBusiness ? (
+        <div className="mb-3.5 rounded-lg bg-emerald-50/80 px-3.5 py-2.5 border border-emerald-200 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="size-4 text-emerald-800 shrink-0" />
+            <p className="text-xs sm:text-sm font-semibold text-emerald-950">
+              Welcome! Register your business details below to unlock all invoicing, inventory, and reporting features.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsTourOpen(true)}
+            className="shrink-0 text-xs font-bold text-emerald-800 underline hover:text-emerald-950 cursor-pointer"
+          >
+            Start Guided Tour
+          </button>
+        </div>
+      ) : null}
 
       <form onSubmit={handleSubmit(onSubmit)}>
+        {/* SECTION 1: General Details (Dark Green - emerald-800) */}
         <div className={sectionClass}>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">General Details</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className={labelClass}>Legal Business Name</label>
-              <input type="text" className={cn(inputClass, errors.legal_name && 'border-destructive focus:ring-destructive')} {...register('legal_name')} />
-              {errors.legal_name && <p className={errorClass}>{errors.legal_name.message}</p>}
+          <div className="flex items-center justify-between pb-2 border-b border-border/50 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex size-5.5 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-[11px] font-black text-white shadow-xs">
+                1
+              </div>
+              <Building2 className="size-4 text-emerald-800 shrink-0" />
+              <h3 className="text-base font-bold text-slate-900 font-heading tracking-wide uppercase">General Details</h3>
             </div>
-            <div>
-              <label className={labelClass}>Trade Name (Optional)</label>
-              <input type="text" className={cn(inputClass, errors.trade_name && 'border-destructive focus:ring-destructive')} {...register('trade_name')} />
-              {errors.trade_name && <p className={errorClass}>{errors.trade_name.message}</p>}
+            <span className="text-xs font-medium text-muted-foreground">Identity &amp; GST registration</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Row 1: Business Names (2 cols) */}
+            <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2">
+              {/* TOUR STEP 1: Legal Business Name */}
+              <div data-tour-step="1" className="relative scroll-mt-28">
+                <label className={labelClass}>
+                  <Building2 className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>Legal Business Name <span className="text-destructive">*</span></span>
+                </label>
+                <input type="text" className={cn(inputGreenClass, errors.legal_name && 'border-destructive focus:ring-destructive/20')} {...register('legal_name')} />
+                {errors.legal_name && <p className={errorClass}>{errors.legal_name.message}</p>}
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  <Store className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>Trade Name (Optional)</span>
+                </label>
+                <input type="text" className={cn(inputGreenClass, errors.trade_name && 'border-destructive focus:ring-destructive/20')} {...register('trade_name')} />
+                {errors.trade_name && <p className={errorClass}>{errors.trade_name.message}</p>}
+              </div>
             </div>
-            <div>
-              <label className={labelClass}>GSTIN</label>
-              <input type="text" className={cn(inputClass, "font-mono uppercase", errors.gstin && 'border-destructive focus:ring-destructive')} {...register('gstin')} />
-              {errors.gstin && <p className={errorClass}>{errors.gstin.message}</p>}
+
+            {/* Row 2: 4 Equal-Width Fields (GSTIN + PAN + Registration Type + Nature of Business) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+              {/* TOUR STEP 2: GSTIN */}
+              <div data-tour-step="2" className="min-w-0 relative scroll-mt-28">
+                <label className={labelClass}>
+                  <FileSpreadsheet className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>GSTIN <span className="text-destructive">*</span></span>
+                </label>
+                <input type="text" maxLength={15} className={cn(inputGreenClass, "font-mono uppercase tracking-wider", errors.gstin && 'border-destructive focus:ring-destructive/20')} {...register('gstin')} />
+                {errors.gstin && <p className={errorClass}>{errors.gstin.message}</p>}
+              </div>
+
+              {/* 2. PAN */}
+              <div className="min-w-0">
+                <label className={labelClass}>
+                  <CreditCard className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>PAN</span>
+                </label>
+                <input type="text" maxLength={10} className={cn(inputGreenClass, "font-mono uppercase tracking-wider", errors.pan && 'border-destructive focus:ring-destructive/20')} {...register('pan')} />
+                {errors.pan && <p className={errorClass}>{errors.pan.message}</p>}
+              </div>
+
+              {/* TOUR STEP 3: Registration Type */}
+              <div data-tour-step="3" className="min-w-0 relative scroll-mt-28">
+                <label className={labelClass}>
+                  <ShieldCheck className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>Registration Type</span>
+                </label>
+                <select className={cn(inputGreenClass, errors.registration_type && 'border-destructive focus:ring-destructive/20')} {...register('registration_type')}>
+                  <option value="regular">Regular</option>
+                  <option value="composition">Composition</option>
+                </select>
+                {errors.registration_type && <p className={errorClass}>{errors.registration_type.message}</p>}
+              </div>
+
+              {/* 4. Nature of Business */}
+              <div className="min-w-0">
+                <label className={labelClass}>
+                  <Briefcase className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>Nature of Business</span>
+                </label>
+                <input type="text" placeholder="e.g. Wholesale & Retail" className={cn(inputGreenClass, errors.nature_of_business && 'border-destructive focus:ring-destructive/20')} {...register('nature_of_business')} />
+                {errors.nature_of_business && <p className={errorClass}>{errors.nature_of_business.message}</p>}
+              </div>
             </div>
-            <div>
-              <label className={labelClass}>PAN (Optional)</label>
-              <input type="text" className={cn(inputClass, "font-mono uppercase", errors.pan && 'border-destructive focus:ring-destructive')} {...register('pan')} />
-              {errors.pan && <p className={errorClass}>{errors.pan.message}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Registration Type</label>
-              <select className={cn(inputClass, errors.registration_type && 'border-destructive focus:ring-destructive')} {...register('registration_type')}>
-                <option value="regular">Regular</option>
-                <option value="composition">Composition</option>
-              </select>
-              {errors.registration_type && <p className={errorClass}>{errors.registration_type.message}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Phone (Optional)</label>
-              <input type="tel" className={cn(inputClass, errors.phone && 'border-destructive focus:ring-destructive')} {...register('phone')} />
-              {errors.phone && <p className={errorClass}>{errors.phone.message}</p>}
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Email (Optional)</label>
-              <input type="email" className={cn(inputClass, errors.email && 'border-destructive focus:ring-destructive')} {...register('email')} />
-              {errors.email && <p className={errorClass}>{errors.email.message}</p>}
+
+            {/* Row 3: Contact Details (Email 50%, Phone 25%, Alt Phone 25%) */}
+            <div className="grid gap-2.5 sm:gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {/* TOUR STEP 4: Email */}
+              <div data-tour-step="4" className="min-w-0 sm:col-span-2 lg:col-span-2 relative scroll-mt-28">
+                <label className={labelClass}>
+                  <Mail className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>Email (Optional)</span>
+                </label>
+                <input type="email" placeholder="billing@yourbusiness.com" className={cn(inputGreenClass, errors.email && 'border-destructive focus:ring-destructive/20')} {...register('email')} />
+                {errors.email && <p className={errorClass}>{errors.email.message}</p>}
+              </div>
+
+              {/* TOUR STEP 5: Phone */}
+              <div data-tour-step="5" className="min-w-0 sm:col-span-1 lg:col-span-1 relative scroll-mt-28">
+                <label className={labelClass}>
+                  <Phone className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>Phone (Optional)</span>
+                </label>
+                <input type="tel" placeholder="e.g. 9848069599" className={cn(inputGreenClass, errors.phone && 'border-destructive focus:ring-destructive/20')} {...register('phone')} />
+                {errors.phone && <p className={errorClass}>{errors.phone.message}</p>}
+              </div>
+
+              {/* 3. Alt Phone */}
+              <div className="min-w-0 sm:col-span-1 lg:col-span-1">
+                <label className={labelClass}>
+                  <PhoneCall className="size-3.5 text-emerald-800 shrink-0" />
+                  <span>Alt Phone (Optional)</span>
+                </label>
+                <input type="tel" placeholder="e.g. 9848537068" className={cn(inputGreenClass, errors.alternate_phone && 'border-destructive focus:ring-destructive/20')} {...register('alternate_phone')} />
+                {errors.alternate_phone && <p className={errorClass}>{errors.alternate_phone.message}</p>}
+              </div>
             </div>
           </div>
         </div>
 
+        {/* SECTION 2: Registered Address (Dark Orange / Amber - amber-800) */}
         <div className={sectionClass}>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Registered Address</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Address Line 1</label>
-              <input type="text" className={cn(inputClass, errors.address_line1 && 'border-destructive focus:ring-destructive')} {...register('address_line1')} />
-              {errors.address_line1 && <p className={errorClass}>{errors.address_line1.message}</p>}
+          <div className="flex items-center justify-between pb-2 border-b border-border/50 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex size-5.5 shrink-0 items-center justify-center rounded-full bg-amber-800 text-[11px] font-black text-white shadow-xs">
+                2
+              </div>
+              <MapPin className="size-4 text-amber-800 shrink-0" />
+              <h3 className="text-base font-bold text-slate-900 font-heading tracking-wide uppercase">Registered Address</h3>
             </div>
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Address Line 2 (Optional)</label>
-              <input type="text" className={cn(inputClass, errors.address_line2 && 'border-destructive focus:ring-destructive')} {...register('address_line2')} />
-              {errors.address_line2 && <p className={errorClass}>{errors.address_line2.message}</p>}
+            <span className="text-xs font-medium text-muted-foreground">Principal place of business</span>
+          </div>
+
+          <div className="space-y-3">
+            {/* Row 1: Address Line 1 & Line 2 (2 cols) */}
+            <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2">
+              {/* TOUR STEP 6: Address Line 1 */}
+              <div data-tour-step="6" className="relative scroll-mt-28">
+                <label className={labelClass}>
+                  <MapPin className="size-3.5 text-amber-800 shrink-0" />
+                  <span>Address Line 1 <span className="text-destructive">*</span></span>
+                </label>
+                <input type="text" className={cn(inputAmberClass, errors.address_line1 && 'border-destructive focus:ring-destructive/20')} {...register('address_line1')} />
+                {errors.address_line1 && <p className={errorClass}>{errors.address_line1.message}</p>}
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  <MapPin className="size-3.5 text-amber-800 shrink-0" />
+                  <span>Address Line 2 (Optional)</span>
+                </label>
+                <input type="text" className={cn(inputAmberClass, errors.address_line2 && 'border-destructive focus:ring-destructive/20')} {...register('address_line2')} />
+                {errors.address_line2 && <p className={errorClass}>{errors.address_line2.message}</p>}
+              </div>
             </div>
-            <div>
-              <label className={labelClass}>City</label>
-              <input type="text" className={cn(inputClass, errors.city && 'border-destructive focus:ring-destructive')} {...register('city')} />
-              {errors.city && <p className={errorClass}>{errors.city.message}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>State</label>
-              <select className={cn(inputClass, errors.state_code && 'border-destructive focus:ring-destructive')} {...register('state_code')}>
-                <option value="">Select State</option>
-                {INDIAN_GST_STATES.map((s) => (
-                  <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
-                ))}
-              </select>
-              {errors.state_code && <p className={errorClass}>{errors.state_code.message}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Pincode</label>
-              <input type="text" className={cn(inputClass, errors.pincode && 'border-destructive focus:ring-destructive')} {...register('pincode')} />
-              {errors.pincode && <p className={errorClass}>{errors.pincode.message}</p>}
+
+            {/* Row 2: City, State, Pincode (3 cols) */}
+            <div className="grid gap-2.5 sm:gap-3 grid-cols-1 sm:grid-cols-12">
+              {/* TOUR STEP 7: City */}
+              <div data-tour-step="7" className="sm:col-span-5 relative scroll-mt-28">
+                <label className={labelClass}>
+                  <Navigation className="size-3.5 text-amber-800 shrink-0" />
+                  <span>City <span className="text-destructive">*</span></span>
+                </label>
+                <input type="text" className={cn(inputAmberClass, errors.city && 'border-destructive focus:ring-destructive/20')} {...register('city')} />
+                {errors.city && <p className={errorClass}>{errors.city.message}</p>}
+              </div>
+
+              {/* TOUR STEP 8: State */}
+              <div data-tour-step="8" className="sm:col-span-4 relative scroll-mt-28">
+                <label className={labelClass}>
+                  <Globe className="size-3.5 text-amber-800 shrink-0" />
+                  <span>State <span className="text-destructive">*</span></span>
+                </label>
+                <select className={cn(inputAmberClass, errors.state_code && 'border-destructive focus:ring-destructive/20')} {...register('state_code')}>
+                  <option value="">Select State</option>
+                  {INDIAN_GST_STATES.map((s) => (
+                    <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
+                  ))}
+                </select>
+                {errors.state_code && <p className={errorClass}>{errors.state_code.message}</p>}
+              </div>
+
+              {/* TOUR STEP 9: Pincode */}
+              <div data-tour-step="9" className="sm:col-span-3 relative scroll-mt-28">
+                <label className={labelClass}>
+                  <Hash className="size-3.5 text-amber-800 shrink-0" />
+                  <span>Pincode <span className="text-destructive">*</span></span>
+                </label>
+                <input type="text" maxLength={6} className={cn(inputAmberClass, "font-mono", errors.pincode && 'border-destructive focus:ring-destructive/20')} {...register('pincode')} />
+                {errors.pincode && <p className={errorClass}>{errors.pincode.message}</p>}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className={sectionClass}>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Bank Details (Optional)</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+        {/* SECTION 3: Bank Details (Optional) - TOUR STEP 10 */}
+        <div data-tour-step="10" className={cn(sectionClass, 'relative scroll-mt-28')}>
+          <div className="flex items-center justify-between pb-2 border-b border-border/50 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex size-5.5 shrink-0 items-center justify-center rounded-full bg-rose-900 text-[11px] font-black text-white shadow-xs">
+                3
+              </div>
+              <Landmark className="size-4 text-rose-900 shrink-0" />
+              <h3 className="text-base font-bold text-slate-900 font-heading tracking-wide uppercase">Bank Details (Optional)</h3>
+            </div>
+            <span className="text-xs font-medium text-muted-foreground">Payouts &amp; invoice bank imprint</span>
+          </div>
+
+          <div className="grid gap-2.5 sm:gap-3 sm:grid-cols-2">
             <div>
-              <label className={labelClass}>Bank Name</label>
-              <input type="text" className={cn(inputClass, errors.bank_name && 'border-destructive focus:ring-destructive')} {...register('bank_name')} />
+              <label className={labelClass}>
+                <Landmark className="size-3.5 text-rose-900 shrink-0" />
+                <span>Bank Name</span>
+              </label>
+              <input type="text" className={cn(inputRoseClass, errors.bank_name && 'border-destructive focus:ring-destructive/20')} {...register('bank_name')} />
               {errors.bank_name && <p className={errorClass}>{errors.bank_name.message}</p>}
             </div>
             <div>
-              <label className={labelClass}>Account Name</label>
-              <input type="text" className={cn(inputClass, errors.bank_account_name && 'border-destructive focus:ring-destructive')} {...register('bank_account_name')} />
+              <label className={labelClass}>
+                <UserCheck className="size-3.5 text-rose-900 shrink-0" />
+                <span>Account Name</span>
+              </label>
+              <input type="text" className={cn(inputRoseClass, errors.bank_account_name && 'border-destructive focus:ring-destructive/20')} {...register('bank_account_name')} />
               {errors.bank_account_name && <p className={errorClass}>{errors.bank_account_name.message}</p>}
             </div>
             <div>
-              <label className={labelClass}>Account Number</label>
-              <input type="text" className={cn(inputClass, errors.bank_account_number && 'border-destructive focus:ring-destructive')} {...register('bank_account_number')} />
+              <label className={labelClass}>
+                <CreditCard className="size-3.5 text-rose-900 shrink-0" />
+                <span>Account Number</span>
+              </label>
+              <input type="text" className={cn(inputRoseClass, "font-mono", errors.bank_account_number && 'border-destructive focus:ring-destructive/20')} {...register('bank_account_number')} />
               {errors.bank_account_number && <p className={errorClass}>{errors.bank_account_number.message}</p>}
             </div>
             <div>
-              <label className={labelClass}>IFSC Code</label>
-              <input type="text" className={cn(inputClass, "font-mono uppercase", errors.bank_ifsc && 'border-destructive focus:ring-destructive')} {...register('bank_ifsc')} />
+              <label className={labelClass}>
+                <QrCode className="size-3.5 text-rose-900 shrink-0" />
+                <span>IFSC Code</span>
+              </label>
+              <input type="text" maxLength={11} className={cn(inputRoseClass, "font-mono uppercase tracking-wider", errors.bank_ifsc && 'border-destructive focus:ring-destructive/20')} {...register('bank_ifsc')} />
               {errors.bank_ifsc && <p className={errorClass}>{errors.bank_ifsc.message}</p>}
             </div>
           </div>
         </div>
 
-        <div className={sectionClass}>
-          <h3 className="mb-4 text-sm font-semibold text-foreground">Document Prefixes</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <label className="text-sm font-medium text-foreground">Invoice Number Format</label>
-                <div className="group relative flex items-center justify-center">
-                  <button type="button" className="text-muted-foreground hover:text-foreground">
-                    <Info className="size-4" />
-                  </button>
-                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 opacity-0 transition-opacity group-hover:opacity-100 bg-popover text-popover-foreground text-xs p-3 rounded-lg shadow-lg border border-border z-10">
-                    <p className="mb-2">
-                      Under GST Rule 46(b), your invoice number must be 16 characters or fewer, and can only contain letters, numbers, hyphens (-), and slashes (/) — no spaces or other symbols.
-                    </p>
-                    <p className="mb-2">
-                      Build your format using these placeholders: {'{SEQ:N}'} = running counter, N digits wide (required, exactly once) · {'{FY}'} = short financial year, e.g. 26-27 · {'{FYYYY}'} = full financial year, e.g. 2026-27 · {'{YYYY}'}/{'{YY}'} = 4 or 2-digit calendar year · {'{MM}'} = 2-digit month · {'{DD}'} = 2-digit day.
-                    </p>
-                    <p>Examples:<br/>
-                    INV/{'{FY}'}/{'{SEQ:4}'} → INV/26-27/0001 (14 chars)<br/>
-                    INV/{'{YY}'}{'{MM}'}/{'{SEQ:3}'} → INV/2607/001 (12 chars)<br/>
-                    INV-{'{DD}'}/{'{MM}'}/{'{YY}'}/{'{SEQ:3}'} → INV-08/07/26/001 (16 chars)</p>
-                  </div>
-                </div>
-              </div>
-              <input type="text" className={cn(inputClass, (errors.invoice_number_format || formatError) && 'border-destructive focus:ring-destructive')} {...register('invoice_number_format')} />
-              {errors.invoice_number_format ? (
-                <p className={errorClass}>{errors.invoice_number_format.message}</p>
-              ) : formatError ? (
-                <p className={errorClass}>{formatError}</p>
-              ) : formatPreview ? (
-                <p className="mt-1.5 text-xs text-muted-foreground">{formatPreview}</p>
-              ) : null}
+        {/* Informational Callout: Invoice Settings Location */}
+        <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-900 text-white shadow-xs">
+              <ReceiptText className="size-5" />
             </div>
             <div>
-              <label className={labelClass}>Credit Note Prefix</label>
-              <input type="text" className={cn(inputClass, errors.credit_note_number_prefix && 'border-destructive focus:ring-destructive')} {...register('credit_note_number_prefix')} />
-              {errors.credit_note_number_prefix && <p className={errorClass}>{errors.credit_note_number_prefix.message}</p>}
-            </div>
-            <div>
-              <label className={labelClass}>Payment Due (Days)</label>
-              <input type="number" min="0" max="365" className={cn(inputClass, errors.payment_due_days && 'border-destructive focus:ring-destructive')} {...register('payment_due_days')} />
-              {errors.payment_due_days && <p className={errorClass}>{errors.payment_due_days.message}</p>}
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelClass}>Invoice Terms & Conditions</label>
-              <textarea rows={4} className={cn(inputClass, 'resize-y', errors.invoice_terms && 'border-destructive focus:ring-destructive')} {...register('invoice_terms')} />
-              {errors.invoice_terms && <p className={errorClass}>{errors.invoice_terms.message}</p>}
+              <p className="text-sm font-bold text-slate-900">
+                Invoice Numbering, Templates &amp; Trade Terms
+              </p>
+              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                Statutory invoice number formatting (GST Rule 46(b)), credit note prefix, payment due days, invoice templates, and footer terms are now managed under the dedicated <span className="font-semibold text-blue-900">Invoice Settings</span> tab.
+              </p>
             </div>
           </div>
+          {onSwitchTab && (
+            <button
+              type="button"
+              onClick={() => onSwitchTab('Invoice Settings')}
+              className="shrink-0 rounded-lg bg-blue-900 px-3 py-2 text-xs sm:text-sm font-bold text-white transition-all hover:bg-blue-950 cursor-pointer shadow-xs flex items-center gap-1.5"
+            >
+              <span>Go to Invoice Settings</span>
+              <ArrowRight className="size-4" />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center justify-between">
+        {/* Form Footer Actions & TOUR STEP 11: Save Profile Button */}
+        <div className="flex items-center justify-between pt-1">
           <div>
             {success && (
-              <span className="flex items-center text-sm font-medium text-success">
+              <span className="flex items-center text-sm font-bold text-emerald-800">
                 <Check className="mr-1.5 size-4" /> Profile saved successfully
               </span>
             )}
           </div>
+          {/* TOUR STEP 11: Save Profile Button */}
           <button
+            data-tour-step="11"
             type="submit"
             disabled={isSubmitting}
-            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="relative scroll-mt-28 rounded-lg bg-emerald-800 px-4 py-2 h-9 text-sm font-bold text-white transition-all hover:bg-emerald-900 disabled:opacity-50 shadow-xs hover:shadow-sm cursor-pointer flex items-center gap-1.5"
           >
+            <Check className="size-4" />
             {isSubmitting ? 'Saving...' : 'Save Profile'}
           </button>
         </div>
       </form>
+
+      {/* On-Screen Registration / Setup Spotlight Tour Component */}
+      <ProfileSpotlightTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        showCelebration={showCelebration}
+        onCelebrationDismiss={() => setShowCelebration(false)}
+      />
     </div>
   );
 }

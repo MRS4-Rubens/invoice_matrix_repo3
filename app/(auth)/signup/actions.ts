@@ -41,7 +41,8 @@ export async function signupAction(prevState: any, formData: FormData) {
     if (signUpResponse && signUpResponse.data && signUpResponse.data.user) {
       await ensureAppUser({
         authUserId: signUpResponse.data.user.id,
-        displayName: name
+        displayName: name,
+        email: email
       });
     }
   } catch (err: any) {

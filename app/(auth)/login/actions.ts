@@ -31,7 +31,8 @@ export async function loginAction(prevState: any, formData: FormData) {
     if (signInResponse && signInResponse.data && signInResponse.data.user) {
       await ensureAppUser({
         authUserId: signInResponse.data.user.id,
-        displayName: null
+        displayName: signInResponse.data.user.name || null,
+        email: signInResponse.data.user.email || email,
       });
     }
   } catch (err: any) {

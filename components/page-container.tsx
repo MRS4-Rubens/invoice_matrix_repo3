@@ -20,14 +20,14 @@ const sizeClasses: Record<NonNullable<PageContainerProps['size']>, string> = {
 export function PageContainer({
   children,
   className,
-  size = 'lg',
+  size = 'full',
   as,
 }: PageContainerProps) {
-  const Component = as ?? 'main'
+  const Component = as ?? 'div'
   return (
     <Component
       className={cn(
-        'mx-auto w-full px-4 py-10 sm:px-6 lg:px-8',
+        'w-full',
         sizeClasses[size],
         className,
       )}

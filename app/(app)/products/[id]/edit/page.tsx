@@ -39,24 +39,12 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Edit Product/Service</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Update catalogue details
-          </p>
-        </div>
-        <ProductActions product={product} />
-      </div>
-
-      {!product.is_active && (
-        <div className="mb-6 rounded-lg bg-amber-500/10 p-4 text-sm text-amber-600 dark:text-amber-400">
-          This product is currently inactive and will not appear in dropdowns when creating invoices.
-        </div>
-      )}
-
-      <ProductForm product={product} taxRates={taxRatesResult.data} />
+    <div className="w-full space-y-6">
+      <ProductForm 
+        product={product} 
+        taxRates={taxRatesResult.data} 
+        headerActions={<ProductActions product={product} />}
+      />
     </div>
   );
 }

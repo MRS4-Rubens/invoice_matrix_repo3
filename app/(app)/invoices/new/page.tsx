@@ -40,8 +40,8 @@ export default async function NewInvoicePage() {
       customers={allCustomers}
       products={allProducts}
       taxRates={allTaxRates}
-      businessStateCode={business.state_code}
-      invoiceNumberFormatPreview={invoiceNumberFormatPreview}
+      business={business}
+      activeFys={activeFys}
       isDraft={false}
     />
   );

@@ -38,15 +38,16 @@ export function CustomerActions({ customerId, isActive }: { customerId: string, 
       variant={isActive ? 'destructive' : 'default'}
       onClick={toggleActive}
       disabled={loading}
+      className="h-9 px-3.5 text-sm font-bold rounded-lg shadow-xs hover:shadow-sm cursor-pointer transition-all hover:-translate-y-px active:translate-y-px"
     >
       {isActive ? (
         <>
-          <PowerOff className="size-4 mr-2" />
+          <PowerOff className="size-3.5 mr-1.5" />
           Deactivate
         </>
       ) : (
         <>
-          <Power className="size-4 mr-2" />
+          <Power className="size-3.5 mr-1.5" />
           Reactivate
         </>
       )}
