@@ -21,13 +21,14 @@ This app uses Next.js Server Actions as the default way pages talk to the backen
 | `lib/gst/units.ts` | The official, government-fixed list of GST Unit Quantity Codes (UQC), used for product unit-of-measurement selection and (in later phases) invoice line items. This is a closed list — do not add codes that aren't officially recognized by CBIC. | Phase 7 |
 | `lib/invoices/` | Invoice-numbering logic (financial-year-aware sequencing). Kept separate from `lib/actions/invoices/` because numbering is a pure rule, not a database action. | Phase 9 |
 | `lib/invoices/status.ts` | PURE, live-computed invoice status. The 'overdue' state is intentionally never written to the database to avoid relying on cron jobs; it is computed fresh on every read by comparing the locked due_date against the current date. | Phase 13 |
-| `lib/actions/payments/` | Contains the payment recording actions. Note: Phase 12 (Credit Notes) is currently deferred. When credit notes are built, `record-payment.ts`'s overpayment checks and the 'fully paid' status determination will need to account for credit notes reducing the actual amount owed. This is a known, deliberate follow-up, not an oversight. | Phase 13 |
-| `lib/actions/reports/` | Reporting and dashboard stat Server Actions. Note that revenue/report figures currently reflect gross invoice totals and do not yet subtract credit notes (Phase 12, deferred) — this is a known follow-up for whenever Phase 12 is built. | Phase 14 |
+| `lib/actions/payments/` | Contains payment recording actions. Overpayment checks and 'fully paid' status determination directly factor in finalized credit notes reducing the actual amount owed. | Phase 13 (updated Phase 12) |
+| `lib/actions/credit-notes/` | Server Actions for Credit Notes (create draft, finalize, list, get, delete draft). Numbering strictly adheres to CGST Rule 53 (<= 16 chars, FY-aware, sequential). | Phase 12 |
+| `lib/actions/reports/` | Reporting and dashboard stat Server Actions. Figures factor in finalized credit notes. | Phase 14 & Phase 12 |
 | `lib/reports/period.ts` | Centralized logic for computing date ranges (This Month, Financial Year). Shared groundwork to ensure Phase 15's Excel export logic reuses exact same bounds. | Phase 14 |
 | `lib/pdf/` | Currently contains `number-to-words.ts` and `html-to-pdf-provider.ts` (swappable CustomJS API for external PDF rendering). | Phase 10 & 11 |
-| `lib/storage/` | iDrive e2 (S3-compatible) client for archiving finalized invoice PDFs, and orchestration logic. | Phase 11 |
+| `lib/storage/` | iDrive e2 (S3-compatible) client for archiving finalized invoice and credit note PDFs, and orchestration logic. | Phase 11 & Phase 12 |
 | `lib/security/` | Token and signature generation (e.g. HMAC-SHA256 tokens for external route access). | Phase 11 |
-| `lib/excel/` | ExcelJS-based export logic for the monthly ITR/GST export. Deliberate design choice: this is a working "sales register" for a CA to review and use for return preparation, not a direct-upload-ready GSTN portal file format. A fresh export should be sanity-checked against the actual CA's expected column format the first time it's used for real. The credit notes sheet will automatically populate once Phase 12 is built, with no code changes needed. | Phase 15 |
+| `lib/excel/` | ExcelJS-based export logic for the monthly ITR/GST export. Populates Sales Register and GSTR-1 CDNR sheets with finalized credit notes. | Phase 15 & Phase 12 |
 | `lib/email/` | Resend client (`lib/email/`) and email templates (`lib/email/templates/`). Note that email attachments always come from Phase 11's archived PDF (never generated fresh). This makes the archival step in Phase 11 a hard dependency for emailing invoices. | Phase 16 |
 | `lib/rate-limit/` | Upstash Redis-based rate limiting, applied to sensitive Server Actions. | Phase 17 |
 | `lib/money.ts` | Shared money utilities: paise↔rupee conversion (rupeesToPaise, paiseToRupees) and Indian currency formatting (formatPaiseAsInr). All monetary amounts in this app are stored as integer paise — this file is the single source of truth for converting between storage and display. Used by product pricing (Phase 7) and will be used by the GST tax engine and invoice line items (Phase 8+). | Phase 7 |
@@ -101,7 +102,7 @@ Data-entry forms in this app use React Hook Form combined with the same Zod sche
 Archival of finalized invoices happens automatically upon finalization using a best-effort approach (non-blocking). 
 - If the external PDF provider or storage provider is slow/down, the invoice is still finalized to ensure business continuity.
 - A daily cron job serves as a safety net to retry pending or failed archival jobs.
-- **Out of scope for MVP:** Formal "cold tier" data migration (after year 6) and reviewed deletion (after year 9) were deliberately scoped OUT of this MVP phase. Neon's storage isn't under real pressure at this business's scale, and irreversible deletion of legal financial records deserves to be built closer to when it's actually needed, with a human reviewing and confirming each batch rather than a fully unattended automated process.
+- **Out of scope for MVP:** Formal "cold tier" data migration and reviewed deletion are deliberately scoped OUT of this MVP phase. For the complete legal protocol, statutory cutoff dates (Year 8+), and implementation guide for when financial years are ready to be closed and purged, see `docs/STATUTORY_ARCHIVAL_BLUEPRINT.md`.
 
 ## Why this structure
 
@@ -122,3 +123,11 @@ Rate limiting uses Upstash Redis and provides three core limiters:
   }, 'my-action', { rateLimit: { limiter: sensitiveActionLimiter, keyPrefix: 'my-action' } });
   ```
 - **Route Handlers**: New Route Handlers added in the future need their own direct rate-limit checks (since the `createAction` wrapper does not govern Route Handlers). Check it using `checkRateLimit` alongside token verification or session extraction.
+
+## Monitoring & Logging (established Phase 18)
+
+Sentry is the live implementation behind `lib/actions/_shared/logger.ts`'s `logError()` function.
+- Client Initialization: Due to a Turbopack auto-import issue in Next.js 16, a `SentryInit` client component (`components/sentry-init.tsx`) is injected near the root of `app/layout.tsx` to dynamically import `instrumentation-client.ts` and force initialization on mount.
+- Server Initialization: Uses the standard Next.js 15+ `instrumentation.ts` pattern to conditionally call `Sentry.init` based on the runtime (`nodejs` or `edge`).
+- Global Error Boundary: `app/global-error.tsx` captures top-level React rendering errors and reports them via `Sentry.captureException`.
+- Alerting: Basic alerting (e.g., email on any new issue) is configured directly in the Sentry dashboard, not in code.
