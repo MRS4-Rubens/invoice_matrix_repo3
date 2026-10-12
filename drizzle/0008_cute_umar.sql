@@ -1,0 +1,1 @@
+ALTER TABLE "businesses" ALTER COLUMN "invoice_number_format" SET DEFAULT 'INV-{DD}/{MM}/{YY}/{SEQ:3}';

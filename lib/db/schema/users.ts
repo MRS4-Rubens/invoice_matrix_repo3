@@ -8,13 +8,15 @@ import { auditLog } from './audit_log';
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   auth_user_id: text('auth_user_id').notNull().unique(),
+  email: text('email'),
   business_id: uuid('business_id').references(() => businesses.id), // nullable because a user can exist before completing business setup in Phase 5
   role: roleEnum('role').notNull().default('owner'),
   display_name: text('display_name'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
-  index('users_business_id_idx').on(table.business_id)
+  index('users_business_id_idx').on(table.business_id),
+  index('users_email_idx').on(table.email)
 ]);
 
 export const usersRelations = relations(users, ({ one, many }) => ({

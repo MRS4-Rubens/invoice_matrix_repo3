@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm';
 import { businesses } from './businesses';
 import { customers } from './customers';
 import { financialYears } from './financial_years';
-import { invoiceTypeEnum, lifecycleStatusEnum, paymentStatusEnum, archivalStatusEnum } from './enums';
+import { invoiceTypeEnum, lifecycleStatusEnum, paymentStatusEnum, archivalStatusEnum, gstRateTypeEnum } from './enums';
 import { invoiceLineItems } from './invoice_line_items';
 import { payments } from './payments';
 import { creditNotes } from './credit_notes';
@@ -12,9 +12,9 @@ import { creditNotes } from './credit_notes';
 export const invoices = pgTable('invoices', {
   id: uuid('id').primaryKey().defaultRandom(),
   business_id: uuid('business_id').notNull().references(() => businesses.id),
-  customer_id: uuid('customer_id').notNull().references(() => customers.id),
+  customer_id: uuid('customer_id').references(() => customers.id),
   financial_year_id: uuid('financial_year_id').notNull().references(() => financialYears.id),
-  invoice_sequence: integer('invoice_sequence').notNull(),
+  invoice_sequence: integer('invoice_sequence'),
   invoice_number: text('invoice_number').notNull(),
   invoice_type: invoiceTypeEnum('invoice_type').notNull().default('tax_invoice'),
   lifecycle_status: lifecycleStatusEnum('lifecycle_status').notNull().default('draft'),
@@ -34,6 +34,7 @@ export const invoices = pgTable('invoices', {
   total_tax_paise: integer('total_tax_paise').notNull().default(0),
   grand_total_paise: integer('grand_total_paise').notNull().default(0),
   notes: text('notes'),
+  invoice_template: text('invoice_template').notNull().default('template_1'),
   // pdf_storage_key (existing, Phase 2) holds the iDrive e2 object key once archival_status is 'archived'. credit_notes will get equivalent fields when Phase 12 is built, following this same pattern.
   pdf_storage_key: text('pdf_storage_key'),
   archival_status: archivalStatusEnum('archival_status').notNull().default('pending'),
@@ -42,6 +43,8 @@ export const invoices = pgTable('invoices', {
   emailed_at: timestamp('emailed_at', { withTimezone: true }),
   email_send_count: integer('email_send_count').notNull().default(0),
   finalized_at: timestamp('finalized_at', { withTimezone: true }),
+  // Calculation mode locked for this specific invoice to preserve print layout history (inclusive vs exclusive)
+  gst_rate_type: gstRateTypeEnum('gst_rate_type').notNull().default('exclusive'),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 }, (table) => [

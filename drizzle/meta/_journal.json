@@ -50,6 +50,48 @@
       "when": 1784099365769,
       "tag": "0006_cool_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784878909460,
+      "tag": "0007_dear_james_howlett",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784994404681,
+      "tag": "0008_cute_umar",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785947877370,
+      "tag": "0009_peaceful_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786209166533,
+      "tag": "0010_fat_ultragirl",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787939432819,
+      "tag": "0011_deep_rockslide",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788113387991,
+      "tag": "0012_jittery_jack_flag",
+      "breakpoints": true
     }
   ]
 }

@@ -7,3 +7,6 @@ export const lifecycleStatusEnum = pgEnum('lifecycle_status', ['draft', 'finaliz
 export const paymentStatusEnum = pgEnum('payment_status', ['unpaid', 'partially_paid', 'paid', 'overdue']);
 export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'upi', 'bank_transfer', 'cheque', 'card', 'other']);
 export const archivalStatusEnum = pgEnum('archival_status', ['pending', 'archived', 'failed']);
+
+// Calculation mode for GST: 'inclusive' (tax built-in) or 'exclusive' (tax added on top)
+export const gstRateTypeEnum = pgEnum('gst_rate_type', ['inclusive', 'exclusive']);
