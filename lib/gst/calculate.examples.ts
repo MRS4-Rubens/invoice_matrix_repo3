@@ -36,7 +36,8 @@ export const examples: Example[] = [
       totalSgstPaise: 4050,
       totalIgstPaise: 0,
       totalTaxPaise: 8100,
-      grandTotalPaise: 53100
+      grandTotalPaise: 53100,
+      gstRateType: 'exclusive'
     }
   },
   {
@@ -66,7 +67,8 @@ export const examples: Example[] = [
       totalSgstPaise: 0,
       totalIgstPaise: 1800,
       totalTaxPaise: 1800,
-      grandTotalPaise: 11799
+      grandTotalPaise: 11799,
+      gstRateType: 'exclusive'
     }
   },
   {
@@ -85,18 +87,19 @@ export const examples: Example[] = [
           discountPaise: 0,
           taxableValuePaise: 101,
           taxRatePercentage: 5,
-          cgstPaise: 2,
+          cgstPaise: 3,
           sgstPaise: 3,
           igstPaise: 0,
-          lineTotalPaise: 106
+          lineTotalPaise: 107
         }
       ],
       subtotalPaise: 101,
-      totalCgstPaise: 2,
+      totalCgstPaise: 3,
       totalSgstPaise: 3,
       totalIgstPaise: 0,
-      totalTaxPaise: 5,
-      grandTotalPaise: 106
+      totalTaxPaise: 6,
+      grandTotalPaise: 107,
+      gstRateType: 'exclusive'
     }
   },
   {
@@ -140,7 +143,8 @@ export const examples: Example[] = [
       totalSgstPaise: 8025,
       totalIgstPaise: 0,
       totalTaxPaise: 16050,
-      grandTotalPaise: 138550
+      grandTotalPaise: 138550,
+      gstRateType: 'exclusive'
     }
   },
   {
@@ -170,7 +174,72 @@ export const examples: Example[] = [
       totalSgstPaise: 45,
       totalIgstPaise: 0,
       totalTaxPaise: 90,
-      grandTotalPaise: 588
+      grandTotalPaise: 588,
+      gstRateType: 'exclusive'
+    }
+  },
+  {
+    description: "EXAMPLE F — GST-Inclusive, intra-state, single line item, evenly-divisible",
+    input: {
+      sellerStateCode: '27',
+      placeOfSupplyStateCode: '27',
+      gstRateType: 'inclusive',
+      lineItems: [{ quantity: 5, unitPricePaise: 8000, discountPaise: 0, taxRatePercentage: 18 }]
+    },
+    expected: {
+      supplyType: 'intra_state',
+      lineItems: [
+        {
+          quantity: 5,
+          unitPricePaise: 8000,
+          discountPaise: 0,
+          taxableValuePaise: 33898,
+          taxRatePercentage: 18,
+          cgstPaise: 3051,
+          sgstPaise: 3051,
+          igstPaise: 0,
+          lineTotalPaise: 40000
+        }
+      ],
+      subtotalPaise: 33898,
+      totalCgstPaise: 3051,
+      totalSgstPaise: 3051,
+      totalIgstPaise: 0,
+      totalTaxPaise: 6102,
+      grandTotalPaise: 40000,
+      gstRateType: 'inclusive'
+    }
+  },
+  {
+    description: "EXAMPLE G — GST-Inclusive, with 35% discount, intra-state (matches the Omega Roll-N-Draw Scale in Image 1)",
+    input: {
+      sellerStateCode: '27',
+      placeOfSupplyStateCode: '27',
+      gstRateType: 'inclusive',
+      lineItems: [{ quantity: 5, unitPricePaise: 8000, discountPaise: 14000, taxRatePercentage: 18 }]
+    },
+    expected: {
+      supplyType: 'intra_state',
+      lineItems: [
+        {
+          quantity: 5,
+          unitPricePaise: 8000,
+          discountPaise: 14000,
+          taxableValuePaise: 22034,
+          taxRatePercentage: 18,
+          cgstPaise: 1983,
+          sgstPaise: 1983,
+          igstPaise: 0,
+          lineTotalPaise: 26000
+        }
+      ],
+      subtotalPaise: 22034,
+      totalCgstPaise: 1983,
+      totalSgstPaise: 1983,
+      totalIgstPaise: 0,
+      totalTaxPaise: 3966,
+      grandTotalPaise: 26000,
+      gstRateType: 'inclusive'
     }
   }
 ];

@@ -18,8 +18,8 @@ interface Token {
 const ALLOWED_LITERAL_REGEX = /^[A-Za-z0-9\-/]+$/;
 
 export function parseInvoiceNumberFormat(format: string): { tokens: Token[] } {
-  if (!format) {
-    throw new InvoiceNumberFormatError("Format string cannot be empty.");
+  if (!format || !format.trim()) {
+    throw new InvoiceNumberFormatError("Invoice format cannot be empty. Enter a format like INV/{FY}/{SEQ:4} or pick a preset.");
   }
 
   const tokens: Token[] = [];
@@ -30,39 +30,49 @@ export function parseInvoiceNumberFormat(format: string): { tokens: Token[] } {
     if (format[i] === '{') {
       if (currentLiteral) {
         if (!ALLOWED_LITERAL_REGEX.test(currentLiteral)) {
-          throw new InvoiceNumberFormatError(`Invalid literal characters found. Only letters, numbers, hyphens, and slashes are allowed outside placeholders. Found: "${currentLiteral}"`);
+          if (currentLiteral.includes(' ')) {
+            throw new InvoiceNumberFormatError("Spaces are not permitted in invoice formats under CGST Rule 46(b). Please remove all spaces.");
+          }
+          const invalidChars = Array.from(new Set(currentLiteral.split('').filter(c => !ALLOWED_LITERAL_REGEX.test(c)))).join(', ');
+          throw new InvoiceNumberFormatError(`Invalid character(s) "${invalidChars}" found in format. Under CGST Rule 46(b), only letters (A-Z), numbers (0-9), hyphens (-), and slashes (/) are allowed.`);
         }
-        tokens.push({ type: 'literal', value: currentLiteral });
+        tokens.push({ type: 'literal', value: currentLiteral.toUpperCase() });
         currentLiteral = "";
       }
       
       const endIndex = format.indexOf('}', i);
       if (endIndex === -1) {
-        throw new InvoiceNumberFormatError("Unclosed placeholder brace '{' found.");
+        throw new InvoiceNumberFormatError("Unclosed placeholder brace '{' found. Ensure every opening brace has a matching closing brace '}' (e.g. {FY}).");
       }
       
       const placeholder = format.substring(i + 1, endIndex);
-      if (placeholder.startsWith('SEQ:')) {
-        const widthStr = placeholder.substring(4);
+      const upperPlaceholder = placeholder.trim().toUpperCase();
+
+      if (!upperPlaceholder) {
+        throw new InvoiceNumberFormatError("Empty placeholder '{}' found. Please specify a valid token like {FY} or {SEQ:4}.");
+      }
+
+      if (upperPlaceholder.startsWith('SEQ:')) {
+        const widthStr = upperPlaceholder.substring(4).trim();
         const width = parseInt(widthStr, 10);
         if (isNaN(width) || widthStr !== String(width) || width < 1 || width > 6) {
-          throw new InvoiceNumberFormatError(`Invalid sequence placeholder "{SEQ:${widthStr}}". Width must be a single digit from 1 to 6.`);
+          throw new InvoiceNumberFormatError(`Invalid counter width in "{${placeholder}}". Width must be a single digit between 1 and 6 (e.g. {SEQ:3} for 001-999 or {SEQ:4} for 0001-9999).`);
         }
         tokens.push({ type: 'seq', width });
-      } else if (placeholder === 'FY') {
+      } else if (upperPlaceholder === 'FY') {
         tokens.push({ type: 'fy', width: 5 });
-      } else if (placeholder === 'FYYYY') {
+      } else if (upperPlaceholder === 'FYYYY') {
         tokens.push({ type: 'fyyyy', width: 7 });
-      } else if (placeholder === 'YYYY') {
+      } else if (upperPlaceholder === 'YYYY') {
         tokens.push({ type: 'yyyy', width: 4 });
-      } else if (placeholder === 'YY') {
+      } else if (upperPlaceholder === 'YY') {
         tokens.push({ type: 'yy', width: 2 });
-      } else if (placeholder === 'MM') {
+      } else if (upperPlaceholder === 'MM') {
         tokens.push({ type: 'mm', width: 2 });
-      } else if (placeholder === 'DD') {
+      } else if (upperPlaceholder === 'DD') {
         tokens.push({ type: 'dd', width: 2 });
       } else {
-        throw new InvoiceNumberFormatError(`Unrecognized placeholder "{${placeholder}}".`);
+        throw new InvoiceNumberFormatError(`Unrecognized placeholder "{${placeholder}}". Supported tokens are: {SEQ:N}, {FY}, {FYYYY}, {YYYY}, {YY}, {MM}, and {DD}.`);
       }
       
       i = endIndex + 1;
@@ -74,9 +84,13 @@ export function parseInvoiceNumberFormat(format: string): { tokens: Token[] } {
   
   if (currentLiteral) {
     if (!ALLOWED_LITERAL_REGEX.test(currentLiteral)) {
-      throw new InvoiceNumberFormatError(`Invalid literal characters found. Only letters, numbers, hyphens, and slashes are allowed outside placeholders. Found: "${currentLiteral}"`);
+      if (currentLiteral.includes(' ')) {
+        throw new InvoiceNumberFormatError("Spaces are not permitted in invoice formats under CGST Rule 46(b). Please remove all spaces.");
+      }
+      const invalidChars = Array.from(new Set(currentLiteral.split('').filter(c => !ALLOWED_LITERAL_REGEX.test(c)))).join(', ');
+      throw new InvoiceNumberFormatError(`Invalid character(s) "${invalidChars}" found in format. Under CGST Rule 46(b), only letters (A-Z), numbers (0-9), hyphens (-), and slashes (/) are allowed.`);
     }
-    tokens.push({ type: 'literal', value: currentLiteral });
+    tokens.push({ type: 'literal', value: currentLiteral.toUpperCase() });
   }
 
   return { tokens };
@@ -101,10 +115,10 @@ export function validateInvoiceNumberFormat(format: string): { valid: true; maxR
     }
     
     if (seqCount === 0) {
-      return { valid: false, error: "Format must include exactly one {SEQ:N} counter placeholder." };
+      return { valid: false, error: "Missing sequential counter. Under CGST Rule 46(b), every invoice series must contain a sequential counter like {SEQ:3} or {SEQ:4}." };
     }
     if (seqCount > 1) {
-      return { valid: false, error: "Format can only include one counter placeholder." };
+      return { valid: false, error: "Multiple counter placeholders found. You can only include exactly one {SEQ:N} placeholder in your format." };
     }
     
     if (maxResolvedLength > 16) {
@@ -132,7 +146,7 @@ export function getResetGranularity(format: string): 'daily' | 'monthly' | 'year
     const hasMM = tokens.some(t => t.type === 'mm');
     if (hasMM) return 'monthly';
     return 'yearly';
-  } catch (error) {
+  } catch {
     // If format is invalid, fallback to yearly
     return 'yearly';
   }

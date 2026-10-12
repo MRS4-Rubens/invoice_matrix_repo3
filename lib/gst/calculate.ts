@@ -18,7 +18,11 @@ export function getSupplyType(sellerStateCode: string, placeOfSupplyStateCode: s
   return 'inter_state';
 }
 
-function calculateLineItem(item: TaxLineItemInput, supplyType: SupplyType): TaxLineItemResult {
+function calculateLineItem(
+  item: TaxLineItemInput,
+  supplyType: SupplyType,
+  gstRateType: 'inclusive' | 'exclusive' = 'exclusive'
+): TaxLineItemResult {
   if (item.quantity <= 0) {
     throw new GstCalculationError('Quantity must be greater than 0');
   }
@@ -33,30 +37,51 @@ function calculateLineItem(item: TaxLineItemInput, supplyType: SupplyType): TaxL
     throw new GstCalculationError('Discount must be non-negative');
   }
 
+  // Calculate gross value (entered rate * quantity) in integer paise
   const grossPaise = Math.round(item.quantity * item.unitPricePaise);
 
   if (discountPaise > grossPaise) {
     throw new GstCalculationError("Discount cannot exceed the line item's gross value");
   }
 
-  const taxableValuePaise = grossPaise - discountPaise;
   const rateBasisPoints = Math.round(item.taxRatePercentage * 100);
-  const totalTaxPaise = Math.round((taxableValuePaise * rateBasisPoints) / 10000);
-
+  let taxableValuePaise = 0;
   let cgstPaise = 0;
   let sgstPaise = 0;
   let igstPaise = 0;
+  let lineTotalPaise = 0;
 
-  if (supplyType === 'intra_state') {
-    // when total tax is an odd number of paise, CGST receives the smaller half and SGST receives the larger half; 
-    // this is an arbitrary but fixed, deterministic rule chosen so results are always reproducible
-    cgstPaise = Math.floor(totalTaxPaise / 2);
-    sgstPaise = totalTaxPaise - cgstPaise;
+  if (gstRateType === 'inclusive') {
+    // Case 3 (Inclusive Forward): Net line total including tax is computed directly from inclusive rate
+    lineTotalPaise = grossPaise - discountPaise;
+    
+    // Extract base taxable value by backing out the tax: LineTotal / (1 + TaxRate/100)
+    taxableValuePaise = Math.round((lineTotalPaise * 10000) / (10000 + rateBasisPoints));
+    
+    // Calculate taxes based on the extracted taxable value
+    if (supplyType === 'intra_state') {
+      cgstPaise = Math.round((taxableValuePaise * (rateBasisPoints / 2)) / 10000);
+      sgstPaise = cgstPaise;
+    } else {
+      igstPaise = Math.round((taxableValuePaise * rateBasisPoints) / 10000);
+    }
+    
+    // Adjust taxable value slightly so that TaxableValue + CGST + SGST (or IGST) matches LineTotal exactly (prevent rounding leakage)
+    const calculatedTotalTaxPaise = cgstPaise + sgstPaise + igstPaise;
+    taxableValuePaise = lineTotalPaise - calculatedTotalTaxPaise;
   } else {
-    igstPaise = totalTaxPaise;
+    // Case 1 (Exclusive Forward): Base taxable value is computed, then tax is added on top
+    taxableValuePaise = grossPaise - discountPaise;
+    
+    if (supplyType === 'intra_state') {
+      cgstPaise = Math.round((taxableValuePaise * (rateBasisPoints / 2)) / 10000);
+      sgstPaise = cgstPaise;
+      lineTotalPaise = taxableValuePaise + cgstPaise + sgstPaise;
+    } else {
+      igstPaise = Math.round((taxableValuePaise * rateBasisPoints) / 10000);
+      lineTotalPaise = taxableValuePaise + igstPaise;
+    }
   }
-
-  const lineTotalPaise = taxableValuePaise + totalTaxPaise;
 
   return {
     quantity: item.quantity,
@@ -77,8 +102,10 @@ export function calculateInvoiceTax(input: TaxCalculationInput): TaxCalculationR
   }
 
   const supplyType = getSupplyType(input.sellerStateCode, input.placeOfSupplyStateCode);
+  const gstRateType = input.gstRateType || 'exclusive';
 
-  const lineItems: TaxLineItemResult[] = input.lineItems.map(item => calculateLineItem(item, supplyType));
+  // Authoritatively calculate each line item with correct supply type and rate mode
+  const lineItems: TaxLineItemResult[] = input.lineItems.map(item => calculateLineItem(item, supplyType, gstRateType));
 
   let subtotalPaise = 0;
   let totalCgstPaise = 0;
@@ -103,6 +130,7 @@ export function calculateInvoiceTax(input: TaxCalculationInput): TaxCalculationR
     totalSgstPaise,
     totalIgstPaise,
     totalTaxPaise,
-    grandTotalPaise
+    grandTotalPaise,
+    gstRateType
   };
 }

@@ -29,6 +29,8 @@ export interface TaxCalculationInput {
   sellerStateCode: string;
   placeOfSupplyStateCode: string;
   lineItems: TaxLineItemInput[];
+  // Optional calculation mode parameter (defaults to 'exclusive')
+  gstRateType?: 'inclusive' | 'exclusive';
 }
 
 export interface TaxCalculationResult {
@@ -40,4 +42,6 @@ export interface TaxCalculationResult {
   totalIgstPaise: number;
   totalTaxPaise: number;
   grandTotalPaise: number;
+  // Calculation mode used for calculations (locked for the invoice)
+  gstRateType: 'inclusive' | 'exclusive';
 }

@@ -21,3 +21,8 @@ export function formatIstDateAsIso(date: Date): string {
   const { year, month, day } = getIstDateParts(date);
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
+
+export function parseIsoDateToIstDate(isoStr: string): Date {
+  const [yyyy, mm, dd] = isoStr.split('-').map(Number);
+  return new Date(Date.UTC(yyyy, mm - 1, dd));
+}

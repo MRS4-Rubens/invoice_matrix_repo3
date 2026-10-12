@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const endpoint = process.env.IDRIVE_E2_ENDPOINT;
@@ -65,4 +65,16 @@ export async function getFileBuffer(key: string): Promise<Buffer> {
 
   const byteArray = await response.Body.transformToByteArray();
   return Buffer.from(byteArray);
+}
+
+/**
+ * Deletes an object from the configured iDrive e2 bucket.
+ */
+export async function deleteFileFromStorage(key: string): Promise<void> {
+  const command = new DeleteObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+  });
+
+  await s3Client.send(command);
 }

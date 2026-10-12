@@ -19,5 +19,10 @@ export async function getCurrentAppUser() {
   if (userRows.length === 0) {
     return null;
   }
-  return userRows[0];
+  const appUser = userRows[0];
+  if (!appUser.email && sessionData.user.email) {
+    await db.update(users).set({ email: sessionData.user.email }).where(eq(users.id, appUser.id));
+    appUser.email = sessionData.user.email;
+  }
+  return appUser;
 }

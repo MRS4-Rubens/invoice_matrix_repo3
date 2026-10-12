@@ -33,3 +33,17 @@ export function getCurrentFinancialYearRange(asOfDate: Date = new Date()): { sta
     label: `FY ${fy.label}`
   };
 }
+
+export function getPreviousFinancialYearRange(asOfDate: Date = new Date()): { startDate: string; endDate: string; label: string } {
+  const fy = getIndianFinancialYearForDate(asOfDate);
+  const currentStartYear = parseInt(fy.label.split('-')[0], 10);
+  const prevStartYear = currentStartYear - 1;
+  const prevEndYear = prevStartYear + 1;
+
+  return {
+    startDate: `${prevStartYear}-04-01`,
+    endDate: `${prevEndYear}-03-31`,
+    label: `FY ${prevStartYear}-${String(prevEndYear).slice(-2)}`
+  };
+}
+

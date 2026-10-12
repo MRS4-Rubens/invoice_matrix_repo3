@@ -20,7 +20,12 @@ export const businessProfileSchema = z.object({
   bank_account_number: z.string().max(30).optional().or(z.literal('')),
   bank_ifsc: z.string().transform((v) => v.toUpperCase()).pipe(z.string().regex(IFSC_REGEX, 'Enter a valid IFSC code')).optional().or(z.literal('')),
   bank_name: z.string().max(200).optional().or(z.literal('')),
-  invoice_number_format: z.string().min(1).superRefine((val, ctx) => {
+  invoice_number_format: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.toUpperCase() : v))
+    .superRefine((val, ctx) => {
+    if (!val) return;
     const validState = validateInvoiceNumberFormat(val);
     if (!validState.valid) {
       ctx.addIssue({
@@ -29,9 +34,14 @@ export const businessProfileSchema = z.object({
       });
     }
   }),
-  credit_note_number_prefix: z.string().min(1).max(10).regex(/^[A-Za-z0-9/-]+$/, 'Only letters, numbers, / and - are allowed'),
-  invoice_terms: z.string().max(2000),
-  payment_due_days: z.coerce.number().int().min(0).max(365),
+  credit_note_number_prefix: z.string().max(10).regex(/^[A-Za-z0-9/-]+$/, 'Only letters, numbers, / and - are allowed').optional().or(z.literal('')),
+  invoice_terms: z.string().max(2000).optional(),
+  payment_due_days: z.coerce.number().int().min(0).max(365).optional(),
+  default_invoice_template: z.string().optional().default('template_1'),
+  // Default GST rate calculation preference (inclusive vs exclusive)
+  default_gst_rate_type: z.enum(['inclusive', 'exclusive']).optional().default('exclusive'),
+  nature_of_business: z.string().max(200).optional().or(z.literal('')),
+  alternate_phone: z.string().max(15).optional().or(z.literal('')),
 }).refine(
   (data) => INDIAN_GST_STATES.some((s) => s.code === data.state_code),
   { message: 'Select a valid state', path: ['state_code'] }
