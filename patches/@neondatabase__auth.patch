@@ -1,0 +1,18 @@
+diff --git a/dist/next/server/index.mjs b/dist/next/server/index.mjs
+index 8b6ec55eb61fe1bb616bc9777ce6894c5fc14c37..b7fe9e591ceab7e292749c503b0e63a8d6e4e24c 100644
+--- a/dist/next/server/index.mjs
++++ b/dist/next/server/index.mjs
+@@ -1010,7 +1010,12 @@ async function createNextRequestContext() {
+ 			return extractNeonAuthCookies(headerStore);
+ 		},
+ 		setCookie(name, value, options) {
+-			cookieStore.set(name, value, options);
++			try {
++				cookieStore.set(name, value, options);
++			} catch {
++				// In Next.js Server Components, cookies are read-only and modifying them throws.
++				// Silently ignore so getSession() can continue and return the session data safely.
++			}
+ 		},
+ 		getHeader(name) {
+ 			return headerStore.get(name) ?? null;

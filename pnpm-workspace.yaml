@@ -1,4 +1,5 @@
 allowBuilds:
+  '@sentry/cli': true
   core-js: true
   esbuild: true
   msw: true
@@ -6,3 +7,5 @@ allowBuilds:
   unrs-resolver: true
 overrides:
   hono: 4.12.25
+patchedDependencies:
+  '@neondatabase/auth': patches/@neondatabase__auth.patch
