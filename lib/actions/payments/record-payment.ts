@@ -5,10 +5,10 @@ import { ActionError } from '@/lib/actions/_shared/errors';
 import { sensitiveActionLimiter } from '@/lib/rate-limit/upstash';
 import { recordPaymentSchema } from '@/lib/validations/payment';
 import { db } from '@/lib/db/client';
-import { invoices, payments } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { invoices, payments, creditNotes } from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { rupeesToPaise, paiseToRupees, formatPaiseAsInr } from '@/lib/money';
+import { rupeesToPaise, paiseToRupees } from '@/lib/money';
 
 export const recordPayment = createAuthenticatedAction(recordPaymentSchema, async (input, context) => {
   const businessId = context.appUser.business_id;
@@ -35,18 +35,41 @@ export const recordPayment = createAuthenticatedAction(recordPaymentSchema, asyn
       // 2. Convert input amount
       const newAmountPaise = rupeesToPaise(input.amount);
 
-      // 3. Query existing payments sum
+      // 3. Query existing payments sum (only active, un-voided payments)
       const sumResult = await tx.select({
         total: sql<number>`coalesce(sum(${payments.amount_paise}), 0)`
-      }).from(payments).where(eq(payments.invoice_id, invoice.id));
+      }).from(payments).where(
+        and(
+          eq(payments.invoice_id, invoice.id),
+          eq(payments.status, 'active')
+        )
+      );
       
       const existingSum = Number(sumResult[0].total);
       
-      // Check overpayment (Phase 12: Note that when credit notes are built, this logic will need to account for them reducing the amount actually owed)
-      if (existingSum + newAmountPaise > invoice.grand_total_paise) {
-        const remainingPaise = invoice.grand_total_paise - existingSum;
+      // 3b. Query finalized active credit notes sum
+      const cnSumResult = await tx.select({
+        total: sql<number>`coalesce(sum(${creditNotes.grand_total_paise}), 0)`
+      }).from(creditNotes).where(
+        and(
+          eq(creditNotes.original_invoice_id, invoice.id),
+          eq(creditNotes.lifecycle_status, 'finalized'),
+          eq(creditNotes.status, 'active')
+        )
+      );
+      const totalCreditedPaise = Number(cnSumResult[0]?.total || 0);
+      const netBillPaise = Math.max(0, invoice.grand_total_paise - totalCreditedPaise);
+      const remainingPaise = Math.max(0, netBillPaise - existingSum);
+      
+      // Check overpayment accounting for credit notes
+      if (existingSum + newAmountPaise > netBillPaise) {
         const remainingRupees = paiseToRupees(remainingPaise);
-        throw new ActionError(`This payment would exceed the invoice's remaining balance of ₹${remainingRupees}. Enter an amount up to the remaining balance.`, { code: 'OVERPAYMENT' });
+        throw new ActionError(
+          `This payment would exceed the invoice's remaining balance of ₹${remainingRupees}${
+            totalCreditedPaise > 0 ? ` (adjusted for ₹${paiseToRupees(totalCreditedPaise)} in credit notes)` : ''
+          }. Enter an amount up to the remaining balance.`,
+          { code: 'OVERPAYMENT' }
+        );
       }
 
       // 4. Insert payment
@@ -64,14 +87,14 @@ export const recordPayment = createAuthenticatedAction(recordPaymentSchema, asyn
       const newTotalPaise = existingSum + newAmountPaise;
       let newStatus: 'unpaid' | 'partially_paid' | 'paid' = 'unpaid';
       
-      if (newTotalPaise === invoice.grand_total_paise) {
+      if (newTotalPaise >= netBillPaise) {
         newStatus = 'paid';
       } else if (newTotalPaise > 0) {
         newStatus = 'partially_paid';
       }
 
       await tx.update(invoices).set({
-        payment_status: newStatus
+        payment_status: newStatus,
       }).where(eq(invoices.id, invoice.id));
 
       // 6. Revalidate
@@ -80,7 +103,7 @@ export const recordPayment = createAuthenticatedAction(recordPaymentSchema, asyn
 
       return { 
         payment_status: newStatus, 
-        remaining_balance_paise: invoice.grand_total_paise - newTotalPaise 
+        remaining_balance_paise: Math.max(0, netBillPaise - newTotalPaise) 
       };
     });
   } catch (error) {

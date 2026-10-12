@@ -52,6 +52,13 @@ export const emailInvoice = createAuthenticatedAction(
     }
 
     // 3. Fetch customer email
+    if (!invoice.customer_id) {
+      throw new ActionError(
+        'This is a retail/ad-hoc customer invoice with no email address on file.',
+        { code: 'NO_CUSTOMER_EMAIL' }
+      );
+    }
+
     const customerRecords = await db
       .select()
       .from(customers)

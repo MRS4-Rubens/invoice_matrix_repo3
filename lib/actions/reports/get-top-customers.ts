@@ -20,7 +20,8 @@ export const getTopCustomers = createAuthenticatedAction(getTopCustomersSchema, 
 
   const results = await db.select({
     customer_id: invoices.customer_id,
-    customer_name: customers.name,
+    customer_name: sql<string>`coalesce(${customers.name}, ${invoices.billing_name_snapshot}, 'One-Time Customer')`,
+    customer_gstin: sql<string | null>`coalesce(${customers.gstin}, ${invoices.billing_gstin_snapshot})`,
     total_revenue_paise: sql<number>`sum(${invoices.grand_total_paise})`.mapWith(Number)
   })
   .from(invoices)
@@ -30,9 +31,10 @@ export const getTopCustomers = createAuthenticatedAction(getTopCustomersSchema, 
     eq(invoices.lifecycle_status, 'finalized'),
     between(invoices.invoice_date, input.startDate, input.endDate)
   ))
-  .groupBy(invoices.customer_id, customers.name)
+  .groupBy(invoices.customer_id, customers.name, customers.gstin, invoices.billing_name_snapshot, invoices.billing_gstin_snapshot)
   .orderBy(desc(sql`sum(${invoices.grand_total_paise})`))
   .limit(input.limit);
 
   return results;
 }, 'get-top-customers');
+

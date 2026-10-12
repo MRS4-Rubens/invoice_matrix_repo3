@@ -20,7 +20,8 @@ export const getTopProducts = createAuthenticatedAction(getTopProductsSchema, as
 
   const results = await db.select({
     product_id: invoiceLineItems.product_id,
-    product_name: products.name,
+    product_name: sql<string>`coalesce(${products.name}, ${invoiceLineItems.description}, 'Ad-hoc / Other Items')`,
+    hsn_sac_code: invoiceLineItems.hsn_sac_code,
     total_revenue_paise: sql<number>`sum(${invoiceLineItems.line_total_paise})`.mapWith(Number),
     total_quantity: sql<number>`sum(${invoiceLineItems.quantity})`.mapWith(Number)
   })
@@ -32,13 +33,14 @@ export const getTopProducts = createAuthenticatedAction(getTopProductsSchema, as
     eq(invoices.lifecycle_status, 'finalized'),
     between(invoices.invoice_date, input.startDate, input.endDate)
   ))
-  .groupBy(invoiceLineItems.product_id, products.name)
+  .groupBy(invoiceLineItems.product_id, products.name, invoiceLineItems.description, invoiceLineItems.hsn_sac_code)
   .orderBy(desc(sql`sum(${invoiceLineItems.line_total_paise})`))
   .limit(input.limit);
 
   return results.map(row => ({
     product_id: row.product_id,
     product_name: row.product_name || 'Ad-hoc / Other Items',
+    hsn_sac_code: row.hsn_sac_code,
     total_revenue_paise: row.total_revenue_paise,
     total_quantity: row.total_quantity
   }));

@@ -152,6 +152,7 @@ export const getExportData = createAuthenticatedAction(getExportDataSchema, asyn
       and(
         eq(creditNotes.business_id, businessId),
         eq(creditNotes.lifecycle_status, 'finalized'),
+        eq(creditNotes.status, 'active'),
         between(creditNotes.issue_date, input.startDate, input.endDate)
       )
     )

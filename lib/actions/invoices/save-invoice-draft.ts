@@ -7,9 +7,12 @@ import { db } from '@/lib/db/client';
 import { invoices, invoiceLineItems, businesses, customers, taxRates } from '@/lib/db/schema';
 import { calculateInvoiceTax } from '@/lib/gst/calculate';
 import { TaxCalculationInput, TaxLineItemInput } from '@/lib/gst/types';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, and, between, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getOrCreateCurrentFinancialYear } from '@/lib/invoices/financial-year-rollover';
+import { parseIsoDateToIstDate } from '@/lib/invoices/ist-date';
+import { canCreateInvoice, canUseTemplate } from '@/lib/subscriptions/entitlements';
+import { getCurrentMonthRange } from '@/lib/reports/period';
 
 export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, async (input, context) => {
   const businessId = context.appUser.business_id;
@@ -35,14 +38,50 @@ export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, as
         }
       }
 
-      // 2. Fetch dependencies for tax calculation
-      const businessResult = await tx.select({ state_code: businesses.state_code }).from(businesses).where(eq(businesses.id, businessId));
+      // 2. Fetch dependencies for tax calculation and subscription verification
+      const businessResult = await tx.select({ 
+        state_code: businesses.state_code,
+        default_invoice_template: businesses.default_invoice_template,
+        subscription_plan: businesses.subscription_plan,
+        subscription_status: businesses.subscription_status,
+        trial_ends_at: businesses.trial_ends_at,
+        subscription_ends_at: businesses.subscription_ends_at,
+      }).from(businesses).where(eq(businesses.id, businessId));
       if (businessResult.length === 0) throw new ActionError('Business not found.', { code: 'NOT_FOUND' });
-      const businessStateCode = businessResult[0].state_code;
+      const business = businessResult[0];
+      const businessStateCode = business.state_code;
+      const defaultTemplate = business.default_invoice_template || 'template_1';
 
-      const customerResult = await tx.select({ state_code: customers.state_code }).from(customers).where(eq(customers.id, input.customer_id));
-      if (customerResult.length === 0) throw new ActionError('Customer not found.', { code: 'NOT_FOUND' });
-      const customerStateCode = customerResult[0].state_code;
+      // Subscription & Quota Check: if creating a new invoice, verify monthly quota
+      if (!input.id) {
+        const monthRange = getCurrentMonthRange();
+        const countRes = await tx
+          .select({ count: sql<number>`count(*)` })
+          .from(invoices)
+          .where(and(
+            eq(invoices.business_id, businessId),
+            between(invoices.invoice_date, monthRange.startDate, monthRange.endDate)
+          ));
+        const currentMonthCount = Number(countRes[0]?.count || 0);
+
+        const quotaCheck = canCreateInvoice(business, currentMonthCount);
+        if (!quotaCheck.allowed) {
+          throw new ActionError(quotaCheck.reason || 'Invoice monthly quota exceeded.', {
+            code: quotaCheck.code || 'QUOTA_EXCEEDED',
+          });
+        }
+      }
+
+      // Template Entitlement Check
+      const targetTemplate = input.invoice_template || defaultTemplate;
+      const templateCheck = canUseTemplate(business, targetTemplate);
+      if (!templateCheck.allowed) {
+        throw new ActionError(templateCheck.reason || 'Selected template requires Essentials Pro.', {
+          code: templateCheck.code || 'TEMPLATE_LOCKED',
+        });
+      }
+
+      const customerStateCode = input.place_of_supply_state_code;
 
       const taxRateIds = input.line_items.map(li => li.tax_rate_id);
       const fetchedTaxRates = await tx.select({ id: taxRates.id, rate_percentage: taxRates.rate_percentage }).from(taxRates).where(inArray(taxRates.id, taxRateIds));
@@ -52,10 +91,12 @@ export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, as
       const taxLineItemInputs: TaxLineItemInput[] = input.line_items.map(li => {
         const ratePct = taxRateMap.get(li.tax_rate_id);
         if (ratePct === undefined) throw new ActionError(`Invalid tax rate ID: ${li.tax_rate_id}`);
+        const grossPaise = Math.round(li.quantity * Math.round(li.unit_price * 100));
+        const discountPaise = Math.round(grossPaise * (li.discount / 100));
         return {
           quantity: li.quantity,
           unitPricePaise: Math.round(li.unit_price * 100),
-          discountPaise: Math.round(li.discount * 100),
+          discountPaise,
           taxRatePercentage: ratePct
         };
       });
@@ -63,7 +104,9 @@ export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, as
       const taxCalcInput: TaxCalculationInput = {
         sellerStateCode: businessStateCode,
         placeOfSupplyStateCode: customerStateCode,
-        lineItems: taxLineItemInputs
+        lineItems: taxLineItemInputs,
+        // Set the active GST rate calculation type (inclusive vs exclusive)
+        gstRateType: input.gst_rate_type || 'exclusive'
       };
 
       // 4. Calculate Taxes
@@ -74,7 +117,8 @@ export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, as
       
       const invoiceData = {
         business_id: businessId,
-        customer_id: input.customer_id,
+        customer_id: input.customer_id || null,
+        invoice_date: input.invoice_date || null,
         notes: input.notes || null,
         lifecycle_status: 'draft' as const,
         subtotal_paise: taxResult.subtotalPaise,
@@ -82,23 +126,31 @@ export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, as
         total_sgst_paise: taxResult.totalSgstPaise,
         total_igst_paise: taxResult.totalIgstPaise,
         total_tax_paise: taxResult.totalTaxPaise,
-        grand_total_paise: taxResult.grandTotalPaise,
+        grand_total_paise: Math.round(taxResult.grandTotalPaise / 100) * 100,
+        billing_name_snapshot: input.billing_name,
+        billing_gstin_snapshot: input.billing_gstin || null,
+        place_of_supply_state_code: input.place_of_supply_state_code,
+        invoice_template: input.invoice_template || defaultTemplate,
+        // Calculation mode locked for this specific invoice to preserve print layout history
+        gst_rate_type: input.gst_rate_type || 'exclusive',
       };
 
-      if (!invoiceId) {
-        // Need to link to current financial year for draft, though it will be finalized later
-        // Just find the active one
-        const activeFy = await getOrCreateCurrentFinancialYear(tx, businessId, new Date());
+      const referenceDate = input.invoice_date ? parseIsoDateToIstDate(input.invoice_date) : new Date();
+      const activeFy = await getOrCreateCurrentFinancialYear(tx, businessId, referenceDate);
 
+      if (!invoiceId) {
         const [newInv] = await tx.insert(invoices).values({
           ...invoiceData,
           financial_year_id: activeFy.id,
-          invoice_sequence: 0, // Placeholder for draft
+          invoice_sequence: null, // Placeholder for draft
           invoice_number: `DRAFT-${Date.now()}` // Placeholder for draft uniqueness
         }).returning({ id: invoices.id });
         invoiceId = newInv.id;
       } else {
-        await tx.update(invoices).set(invoiceData).where(eq(invoices.id, invoiceId));
+        await tx.update(invoices).set({
+          ...invoiceData,
+          financial_year_id: activeFy.id
+        }).where(eq(invoices.id, invoiceId));
       }
 
       // 6. Replace Line Items
@@ -116,7 +168,7 @@ export const saveInvoiceDraft = createAuthenticatedAction(invoiceDraftSchema, as
           quantity: li.quantity.toString(),
           unit_of_measurement: li.unit_of_measurement,
           unit_price_paise: Math.round(li.unit_price * 100),
-          discount_paise: Math.round(li.discount * 100),
+          discount_paise: calcLi.discountPaise,
           taxable_value_paise: calcLi.taxableValuePaise,
           tax_rate_percentage: calcLi.taxRatePercentage.toString(),
           cgst_paise: calcLi.cgstPaise,

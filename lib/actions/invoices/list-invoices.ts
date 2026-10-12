@@ -3,7 +3,7 @@
 import { createAuthenticatedAction } from '@/lib/actions/_shared/create-action';
 import { db } from '@/lib/db/client';
 import { invoices, customers } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 export const listInvoices = createAuthenticatedAction(z.object({}), async (_, context) => {
@@ -19,12 +19,14 @@ export const listInvoices = createAuthenticatedAction(z.object({}), async (_, co
       lifecycle_status: invoices.lifecycle_status,
       payment_status: invoices.payment_status,
       due_date: invoices.due_date,
-      customer_name: customers.name
+      customer_name: sql<string>`coalesce(${invoices.billing_name_snapshot}, ${customers.name}, 'One-Time Customer')`,
+      place_of_supply_state_code: invoices.place_of_supply_state_code
     })
     .from(invoices)
-    .innerJoin(customers, eq(invoices.customer_id, customers.id))
+    .leftJoin(customers, eq(invoices.customer_id, customers.id))
     .where(eq(invoices.business_id, businessId))
     .orderBy(desc(invoices.created_at));
 
   return results;
 }, 'list-invoices');
+

@@ -11,10 +11,11 @@ import { TaxCalculationInput, TaxLineItemInput } from '@/lib/gst/types';
 import { eq, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getNextInvoiceNumber } from '@/lib/invoices/numbering';
-import { formatIstDateAsIso, getIstDateParts } from '@/lib/invoices/ist-date';
+import { formatIstDateAsIso, getIstDateParts, parseIsoDateToIstDate } from '@/lib/invoices/ist-date';
 import { getOrCreateCurrentFinancialYear } from '@/lib/invoices/financial-year-rollover';
 import { logError } from '@/lib/actions/_shared/logger';
 import { archiveInvoicePdf } from '@/lib/storage/archive-invoice';
+import { canUseTemplate, getPlanEntitlements } from '@/lib/subscriptions/entitlements';
 
 export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string().uuid() }), async ({ id }, context) => {
   const businessId = context.appUser.business_id;
@@ -39,13 +40,28 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
       if (businessResult.length === 0) throw new ActionError('Business not found.', { code: 'NOT_FOUND' });
       const business = businessResult[0];
 
+      // Entitlement Checks
+      const entitlements = getPlanEntitlements(business);
+      if (entitlements.isSuspended) {
+        throw new ActionError('Your account has been suspended. Please contact platform support.', { code: 'ACCOUNT_SUSPENDED' });
+      }
+
+      const templateCheck = canUseTemplate(business, invoice.invoice_template || 'template_1');
+      if (!templateCheck.allowed) {
+        throw new ActionError(templateCheck.reason || 'Template requires Essentials Pro.', { code: 'TEMPLATE_LOCKED' });
+      }
+
       if (business.registration_type === 'composition') {
         throw new ActionError('Composition-scheme invoicing (Bill of Supply) is not yet supported — this MVP handles Regular-scheme tax invoices only.', { code: 'NOT_SUPPORTED' });
       }
 
-      const customerResult = await tx.select().from(customers).where(eq(customers.id, invoice.customer_id));
-      if (customerResult.length === 0) throw new ActionError('Customer not found.', { code: 'NOT_FOUND' });
-      const customer = customerResult[0];
+      const hasCustomer = !!invoice.customer_id;
+      const customer = hasCustomer
+        ? (await tx.select().from(customers).where(eq(customers.id, invoice.customer_id!)))[0]
+        : null;
+
+      if (hasCustomer && !customer) throw new ActionError('Customer not found.', { code: 'NOT_FOUND' });
+      const placeOfSupplyStateCode = customer ? customer.state_code : invoice.place_of_supply_state_code;
 
       // 3. Fetch Line Items and Tax Rates for authoritative recalc
       const lineItems = await tx.select().from(invoiceLineItems).where(eq(invoiceLineItems.invoice_id, id)).orderBy(invoiceLineItems.sort_order);
@@ -64,8 +80,10 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
 
       const taxCalcInput: TaxCalculationInput = {
         sellerStateCode: business.state_code,
-        placeOfSupplyStateCode: customer.state_code,
-        lineItems: taxLineItemInputs
+        placeOfSupplyStateCode: placeOfSupplyStateCode || business.state_code,
+        lineItems: taxLineItemInputs,
+        // Authoritatively recalculate using the locked calculation mode of the invoice
+        gstRateType: invoice.gst_rate_type
       };
 
       const taxResult = calculateInvoiceTax(taxCalcInput);
@@ -85,7 +103,7 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
       }
 
       // 5. Get Next Invoice Number
-      const invoiceDate = new Date();
+      const invoiceDate = invoice.invoice_date ? parseIsoDateToIstDate(invoice.invoice_date) : new Date();
       const fy = await getOrCreateCurrentFinancialYear(tx, businessId, invoiceDate);
 
       const { invoiceNumber, absoluteSequence } = await getNextInvoiceNumber(tx, {
@@ -97,12 +115,20 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
       });
 
       // 6. Snapshot fields
-      const cityStatePincode = [customer.city, customer.state_code, customer.pincode].filter(Boolean).join(', ');
-      const billingAddressSnapshot = [
-        customer.address_line1,
-        customer.address_line2,
-        cityStatePincode
-      ].filter(Boolean).join('\n');
+      let billingNameSnapshot = invoice.billing_name_snapshot;
+      let billingGstinSnapshot = invoice.billing_gstin_snapshot;
+      let billingAddressSnapshot = invoice.billing_address_snapshot;
+
+      if (customer) {
+        billingNameSnapshot = customer.name;
+        billingGstinSnapshot = customer.gstin;
+        const cityStatePincode = [customer.city, customer.state_code, customer.pincode].filter(Boolean).join(', ');
+        billingAddressSnapshot = [
+          customer.address_line1,
+          customer.address_line2,
+          cityStatePincode
+        ].filter(Boolean).join('\n');
+      }
 
       const { year, month, day } = getIstDateParts(invoiceDate);
       const dueIstDate = new Date(Date.UTC(year, month - 1, day + business.payment_due_days));
@@ -116,17 +142,19 @@ export const finalizeInvoice = createAuthenticatedAction(z.object({ id: z.string
         invoice_date: formatIstDateAsIso(invoiceDate),
         due_date: dueDateString,
         finalized_at: invoiceDate,
-        place_of_supply_state_code: customer.state_code,
+        place_of_supply_state_code: placeOfSupplyStateCode || business.state_code,
         seller_gstin_snapshot: business.gstin,
-        billing_name_snapshot: customer.name,
-        billing_gstin_snapshot: customer.gstin,
+        billing_name_snapshot: billingNameSnapshot,
+        billing_gstin_snapshot: billingGstinSnapshot,
         billing_address_snapshot: billingAddressSnapshot,
         subtotal_paise: taxResult.subtotalPaise,
         total_cgst_paise: taxResult.totalCgstPaise,
         total_sgst_paise: taxResult.totalSgstPaise,
         total_igst_paise: taxResult.totalIgstPaise,
         total_tax_paise: taxResult.totalTaxPaise,
-        grand_total_paise: taxResult.grandTotalPaise,
+        grand_total_paise: Math.round(taxResult.grandTotalPaise / 100) * 100,
+        // Confirm calculation mode is locked at finalization
+        gst_rate_type: invoice.gst_rate_type,
       }).where(eq(invoices.id, id));
 
       revalidatePath('/invoices');

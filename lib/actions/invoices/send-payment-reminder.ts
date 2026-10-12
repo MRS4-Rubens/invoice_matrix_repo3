@@ -40,14 +40,13 @@ export const sendPaymentReminder = createAuthenticatedAction(
 
     const invoice = invoiceRecords[0];
 
-    // 2. Fetch payments to compute balance and current status correctly
+    // 2. Fetch payments to compute balance and current status correctly (active only)
     const invoicePayments = await db
       .select()
       .from(payments)
-      .where(eq(payments.invoice_id, invoice.id));
+      .where(and(eq(payments.invoice_id, invoice.id), eq(payments.status, 'active')));
 
-    // Calculate sum of payments (ignoring failed ones if any, assuming all in payments table are successful unless marked otherwise, but let's assume they are all valid as per current app logic)
-    // Looking at other places, we just sum amount_paise.
+    // Calculate sum of active payments
     const sumOfPayments = invoicePayments.reduce((acc, p) => acc + p.amount_paise, 0);
     const balancePaise = invoice.grand_total_paise - sumOfPayments;
 
@@ -79,6 +78,13 @@ export const sendPaymentReminder = createAuthenticatedAction(
     const daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     // 3. Fetch customer email
+    if (!invoice.customer_id) {
+      throw new ActionError(
+        'This is a retail/ad-hoc customer invoice with no email address on file.',
+        { code: 'NO_CUSTOMER_EMAIL' }
+      );
+    }
+
     const customerRecords = await db
       .select()
       .from(customers)

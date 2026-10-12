@@ -17,8 +17,9 @@ export const getInvoice = createAuthenticatedAction(z.object({ id: z.string().uu
   const invoice = existing[0];
   if (invoice.business_id !== businessId) throw new ActionError('Invoice not found.');
 
-  const customerResult = await db.select().from(customers).where(eq(customers.id, invoice.customer_id));
-  const customer = customerResult[0];
+  const customer = invoice.customer_id
+    ? (await db.select().from(customers).where(eq(customers.id, invoice.customer_id)))[0]
+    : null;
 
   const lineItems = await db.select().from(invoiceLineItems).where(eq(invoiceLineItems.invoice_id, id)).orderBy(invoiceLineItems.sort_order);
 
