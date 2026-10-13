@@ -19,7 +19,7 @@ export default function GlobalError({
       <body>
         <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'sans-serif' }}>
           <h2>Something went wrong</h2>
-          <p>We've been notified and are looking into it.</p>
+          <p>We&apos;ve been notified and are looking into it.</p>
           <button
             onClick={() => reset()}
             style={{

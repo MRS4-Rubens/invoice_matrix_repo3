@@ -78,7 +78,7 @@ export const updateBusinessSubscription = createAuthenticatedAction(
           approved_at: now,
         });
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('[updateBusinessSubscription] Override transaction failed:', err);
       throw new ActionError('Failed to manually update business subscription.', {
         code: 'OVERRIDE_FAILED',

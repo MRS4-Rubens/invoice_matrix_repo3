@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     const workbook = await buildGstr1Workbook(gstr1DataRes.data);
     const buffer = await workbook.xlsx.writeBuffer();
 
-    return new Response(buffer as any, {
+    return new Response(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     const workbook = await buildItrReportWorkbook(itrDataRes.data);
     const buffer = await workbook.xlsx.writeBuffer();
 
-    return new Response(buffer as any, {
+    return new Response(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
     const workbook = await buildHsnWorkbook(gstr1DataRes.data);
     const buffer = await workbook.xlsx.writeBuffer();
 
-    return new Response(buffer as any, {
+    return new Response(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
   const workbook = await buildSalesRegisterWorkbook(exportDataRes.data);
   const buffer = await workbook.xlsx.writeBuffer();
 
-  return new Response(buffer as any, {
+  return new Response(buffer as unknown as BodyInit, {
     status: 200,
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

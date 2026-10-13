@@ -71,7 +71,7 @@ export function TestimonialsSection() {
                 </div>
 
                 <p className="text-slate-600 text-sm leading-relaxed font-normal">
-                  "{t.text}"
+                  &quot;{t.text}&quot;
                 </p>
               </div>
 

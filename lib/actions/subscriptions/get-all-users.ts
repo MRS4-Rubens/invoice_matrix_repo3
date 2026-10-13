@@ -40,7 +40,7 @@ export const getAllUsers = createAuthenticatedAction(
         .orderBy(desc(users.created_at));
 
       return results;
-    } catch (err: any) {
+    } catch (err) {
       console.error('[getAllUsers] Failed to fetch users directory:', err);
       throw new ActionError('Failed to fetch platform users directory.', {
         code: 'FETCH_FAILED',

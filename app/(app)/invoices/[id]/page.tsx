@@ -86,8 +86,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   }
 
   // Finalized
-  let payments: any[] = [];
-  let creditNotesList: any[] = [];
+  let payments: Extract<Awaited<ReturnType<typeof listPayments>>, { success: true }>['data'] = [];
+  let creditNotesList: Extract<Awaited<ReturnType<typeof listCreditNotes>>, { success: true }>['data'] = [];
   if (invoice?.lifecycle_status === 'finalized') {
     const [pResult, cnResult] = await Promise.all([
       listPayments({ invoice_id: id }),

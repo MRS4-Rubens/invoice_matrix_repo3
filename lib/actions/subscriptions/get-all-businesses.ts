@@ -46,7 +46,7 @@ export const getAllBusinesses = createAuthenticatedAction(
         .orderBy(desc(businesses.created_at));
 
       return results;
-    } catch (err: any) {
+    } catch (err) {
       console.error('[getAllBusinesses] Failed to fetch directory:', err);
       throw new ActionError('Failed to fetch businesses directory.', {
         code: 'FETCH_FAILED',

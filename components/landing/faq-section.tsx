@@ -9,7 +9,7 @@ export function FaqSection() {
           FAQ
         </span>
         <h2 className="reveal in text-4xl md:text-5xl font-bold heading">Frequently asked questions</h2>
-        <p className="reveal in text-zinc-500 mt-4 text-lg">Got questions? We've got answers.</p>
+        <p className="reveal in text-zinc-500 mt-4 text-lg">Got questions? We&apos;ve got answers.</p>
       </div>
 
       <div className="reveal in space-y-4">

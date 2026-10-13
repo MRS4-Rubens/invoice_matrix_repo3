@@ -38,7 +38,7 @@ export function HowItWorks() {
           </div>
           <h3 className="font-semibold text-lg heading">Invoice & Share</h3>
           <p className="text-zinc-500 text-sm mt-2 leading-relaxed">
-            Click 'New Invoice', choose client + items, and hit send. Customers get PDFs via Email & WhatsApp.
+            Click &apos;New Invoice&apos;, choose client + items, and hit send. Customers get PDFs via Email & WhatsApp.
           </p>
         </div>
 

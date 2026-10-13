@@ -188,7 +188,7 @@ export function AdminConsole({
 
   // Filtered and sorted businesses
   const filteredBusinesses = useMemo(() => {
-    let result = businesses.filter((b) => {
+    const result = businesses.filter((b) => {
       const matchSearch =
         b.legalName.toLowerCase().includes(bizSearch.toLowerCase()) ||
         (b.tradeName && b.tradeName.toLowerCase().includes(bizSearch.toLowerCase())) ||

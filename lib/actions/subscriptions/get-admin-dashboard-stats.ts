@@ -111,7 +111,7 @@ export const getAdminDashboardStats = createAuthenticatedAction(
         planDistribution: planMap,
         monthlyRevenue: last6Months,
       };
-    } catch (err: any) {
+    } catch (err) {
       console.error('[getAdminDashboardStats] Failed to retrieve admin stats:', err);
       throw new ActionError('Failed to fetch admin dashboard statistics.', {
         code: 'STATS_FETCH_FAILED',
