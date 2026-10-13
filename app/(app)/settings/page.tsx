@@ -36,7 +36,7 @@ export default async function SettingsPage({
     userName: string | null;
   }> = [];
 
-  let usageStats = {
+  const usageStats = {
     invoicesThisMonth: 0,
     invoicesTotal: 0,
     teamMembersCount: 1,

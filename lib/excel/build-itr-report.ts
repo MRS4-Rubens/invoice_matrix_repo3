@@ -83,7 +83,7 @@ export async function buildItrReportWorkbook(data: ItrExportData): Promise<Excel
     const row = sheet1.getRow(currentRowNum++);
     row.height = 20;
 
-    const rowValues: Record<string, any> = {
+    const rowValues: Record<string, ExcelJS.CellValue> = {
       invoice_number: inv.invoice_number,
       invoice_date: inv.invoice_date || '',
       customer_name: inv.customer_name || 'Cash Customer',
@@ -119,7 +119,7 @@ export async function buildItrReportWorkbook(data: ItrExportData): Promise<Excel
   const totalRow = sheet1.getRow(currentRowNum);
   totalRow.height = 22;
 
-  const totalValues: Record<string, any> = {
+  const totalValues: Record<string, ExcelJS.CellValue> = {
     invoice_number: 'TOTAL',
     invoice_date: '',
     customer_name: '',
@@ -241,7 +241,7 @@ export async function buildItrReportWorkbook(data: ItrExportData): Promise<Excel
     for (const m of (data.monthlySummary || [])) {
       const row = sheet2.getRow(s2Row++);
       row.height = 20;
-      const values: Record<string, any> = {
+      const values: Record<string, ExcelJS.CellValue> = {
         month: m.monthLabel,
         quarter: m.quarterLabel,
         count: m.invoiceCount,
@@ -263,7 +263,7 @@ export async function buildItrReportWorkbook(data: ItrExportData): Promise<Excel
     // Annual Totals Row on Sheet 2
     const s2TotalRow = sheet2.getRow(s2Row);
     s2TotalRow.height = 22;
-    const s2TotalVals: Record<string, any> = {
+    const s2TotalVals: Record<string, ExcelJS.CellValue> = {
       month: 'ANNUAL TOTAL',
       quarter: '',
       count: (data.invoices || []).length,

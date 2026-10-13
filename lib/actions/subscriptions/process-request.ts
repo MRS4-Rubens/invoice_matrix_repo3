@@ -95,7 +95,7 @@ export const processSubscriptionClaim = createAuthenticatedAction(
             .where(eq(subscriptionRequests.id, input.request_id));
         }
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('[processSubscriptionClaim] DB transaction failed:', err);
       throw new ActionError('Failed to process request. Please try again.', {
         code: 'TRANSACTION_FAILED',

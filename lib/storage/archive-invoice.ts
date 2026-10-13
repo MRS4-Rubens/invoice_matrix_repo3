@@ -43,7 +43,7 @@ export async function archiveInvoicePdf(invoiceId: string): Promise<{ success: b
     }).where(eq(invoices.id, invoiceId));
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     // Best-effort strategy: never crash the caller, just record the failure for the cron to retry later.
     try {
       const existing = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
@@ -57,6 +57,6 @@ export async function archiveInvoicePdf(invoiceId: string): Promise<{ success: b
       // Ignore errors updating the fallback status
     }
     
-    return { success: false, error: error.message || 'Unknown archival error' };
+    return { success: false, error: error instanceof Error && error.message ? error.message : 'Unknown archival error' };
   }
 }

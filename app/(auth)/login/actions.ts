@@ -6,8 +6,9 @@ import { redirect } from 'next/navigation'
 import { ensureAppUser } from '@/lib/auth/ensure-app-user'
 import { headers } from 'next/headers'
 import { authLimiter, checkRateLimit, getClientIp } from '@/lib/rate-limit/upstash'
+import { getErrorMessage } from '@/lib/auth/get-error-message'
 
-export async function loginAction(prevState: any, formData: FormData) {
+export async function loginAction(prevState: unknown, formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
   
@@ -35,8 +36,8 @@ export async function loginAction(prevState: any, formData: FormData) {
         email: signInResponse.data.user.email || email,
       });
     }
-  } catch (err: any) {
-    return { error: err.body?.message || err.message || 'An unexpected error occurred during login' };
+  } catch (err) {
+    return { error: getErrorMessage(err, 'An unexpected error occurred during login') };
   }
   
   redirect('/dashboard');

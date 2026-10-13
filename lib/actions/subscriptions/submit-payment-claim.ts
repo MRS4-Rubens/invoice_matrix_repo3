@@ -44,7 +44,7 @@ export const submitPaymentClaim = createAuthenticatedAction(
         screenshotKey = `payment-screenshots/${businessId}/${input.payment_reference}.${extension}`;
         
         await uploadFileToStorage(screenshotKey, buffer, mimeType);
-      } catch (err: any) {
+      } catch (err) {
         console.error('[submitPaymentClaim] Screenshot S3 upload failed:', err);
         throw new ActionError('Failed to upload the payment screenshot to S3. Please try again.', {
           code: 'UPLOAD_FAILED',
@@ -70,9 +70,10 @@ export const submitPaymentClaim = createAuthenticatedAction(
         })
         .returning();
       requestRecord = record;
-    } catch (err: any) {
+    } catch (err) {
       // Catch unique reference constraint violations
-      if (err.code === '23505' || err.message?.includes('unique')) {
+      const dbErr = err as { code?: string; message?: string } | null;
+      if (dbErr?.code === '23505' || dbErr?.message?.includes('unique')) {
         throw new ActionError('This payment transaction reference/UTR has already been submitted.', {
           code: 'DUPLICATE_REFERENCE',
         });
@@ -117,7 +118,7 @@ export const submitPaymentClaim = createAuthenticatedAction(
           subject: `🔔 Payment Claim: ${business.legal_name} - ${input.plan_name.toUpperCase()}`,
           react: emailContent,
         });
-      } catch (err: any) {
+      } catch (err) {
         // Log error but don't fail the action, as the DB request was successfully saved
         console.error('[submitPaymentClaim] Email notification failed to send:', err);
       }

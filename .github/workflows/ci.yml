@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Dummy, NON-secret placeholders only so import-time env checks pass during `next build`.
+      # Never put real secrets here and never use GitHub secrets for the build.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      NEON_AUTH_BASE_URL: https://example.invalid/neondb/auth
+      NEON_AUTH_COOKIE_SECRET: ci-dummy-cookie-secret-0123456789abcdef0123
+      IDRIVE_E2_ENDPOINT: https://s3.example.invalid
+      IDRIVE_E2_REGION: us-east-1
+      IDRIVE_E2_ACCESS_KEY: ci
+      IDRIVE_E2_SECRET_KEY: ci
+      IDRIVE_E2_BUCKET_NAME: ci
+      HTML_TO_PDF_API_KEY: ci
+      ARCHIVAL_SIGNING_SECRET: ci-dummy-signing-secret-0123456789
+      RESEND_API_KEY: re_ci
+      UPSTASH_REDIS_REST_URL: https://ci.upstash.invalid
+      UPSTASH_REDIS_REST_TOKEN: ci
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4          # reads "packageManager" from package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm run --if-present test      # skipped until ARCH-003 adds a test script
+      - run: pnpm build
+
+  db-drift:
+    name: db-drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # DB-001 MUST change this to 'true' once the migration baseline is fixed.
+      DRIFT_ENFORCED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Fail if the schema needs a migration that is not committed
+        shell: bash
+        run: |
+          pnpm exec drizzle-kit generate
+          if [ -n "$(git status --porcelain -- drizzle)" ]; then
+            echo "Schema code and committed migrations are out of sync. Generated:"
+            git status --porcelain -- drizzle
+            git ls-files --others --exclude-standard -- drizzle | grep '\.sql$' | xargs -r tail -n +1
+            if [ "$DRIFT_ENFORCED" = "true" ]; then
+              echo "::error::Schema changed without a migration. Run pnpm db:generate and commit the result."
+              exit 1
+            fi
+            echo "::warning::Migration drift detected (expected until DB-001 is done). Not blocking yet."
+          else
+            echo "No migration drift."
+          fi
